@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29503.13
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Nordseth.Git", "Nordseth.Git\Nordseth.Git.csproj", "{EE58D5E2-864A-42DB-B073-9D2A64D2E774}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nordseth.Git.Test", "Nordseth.Git.Test\Nordseth.Git.Test.csproj", "{8ABFDB26-C0A5-42FF-920B-43479E0211CC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{EE58D5E2-864A-42DB-B073-9D2A64D2E774}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EE58D5E2-864A-42DB-B073-9D2A64D2E774}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EE58D5E2-864A-42DB-B073-9D2A64D2E774}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EE58D5E2-864A-42DB-B073-9D2A64D2E774}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8ABFDB26-C0A5-42FF-920B-43479E0211CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8ABFDB26-C0A5-42FF-920B-43479E0211CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8ABFDB26-C0A5-42FF-920B-43479E0211CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8ABFDB26-C0A5-42FF-920B-43479E0211CC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {78D7B2FC-E482-4E26-9229-6C9C1EF4B659}
+	EndGlobalSection
+EndGlobal
