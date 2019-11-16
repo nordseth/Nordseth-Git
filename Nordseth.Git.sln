@@ -5,7 +5,12 @@ VisualStudioVersion = 16.0.29503.13
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Nordseth.Git", "Nordseth.Git\Nordseth.Git.csproj", "{EE58D5E2-864A-42DB-B073-9D2A64D2E774}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nordseth.Git.Test", "Nordseth.Git.Test\Nordseth.Git.Test.csproj", "{8ABFDB26-C0A5-42FF-920B-43479E0211CC}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Nordseth.Git.Test", "Nordseth.Git.Test\Nordseth.Git.Test.csproj", "{8ABFDB26-C0A5-42FF-920B-43479E0211CC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{529D980A-B3D0-4D75-A2FF-F76EAA4DEC37}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

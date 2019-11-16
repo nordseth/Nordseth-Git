@@ -4,6 +4,8 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <PackageId>Nordseth.Git</PackageId>
     <Version>1.0.0</Version>
+    <RepositoryUrl>https://github.com/nordseth/Nordseth-Git</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/nordseth/Nordseth-Git</PackageProjectUrl>
     <Authors>Nordseth</Authors>
   </PropertyGroup>
 
