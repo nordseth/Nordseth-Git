@@ -176,36 +176,39 @@ namespace Nordseth.Git
                 .OrderByDescending(t => t.Tagger.When)
                 .ToList();
 
-            int depth = 0;
-            var commitsChecked = new HashSet<string>();
-            IEnumerable<string> currentCommits = new[] { commitHash };
-            while (currentCommits.Any())
+            if (tags.Any())
             {
-                var tag = tags.FirstOrDefault(t => currentCommits.Any(c => c == t.Commit));
-                if (tag != null)
+                int depth = 0;
+                var commitsChecked = new HashSet<string>();
+                IEnumerable<string> currentCommits = new[] { commitHash };
+                while (currentCommits.Any())
                 {
-                    if (depth == 0)
+                    var tag = tags.FirstOrDefault(t => currentCommits.Any(c => c == t.Commit));
+                    if (tag != null)
                     {
-                        return tag.Name;
+                        if (depth == 0)
+                        {
+                            return tag.Name;
+                        }
+                        else
+                        {
+                            return $"{tag.Name}-{depth}-{commitHash.Substring(0, ShortHashLenght)}";
+                        }
                     }
-                    else
+
+                    foreach (var h in currentCommits)
                     {
-                        return $"{tag.Name}-{depth}-{commitHash.Substring(0, ShortHashLenght)}";
+                        commitsChecked.Add(h);
                     }
+
+                    currentCommits = currentCommits
+                        .Select(h => GetCommit(h))
+                        .SelectMany(c => c.Parents)
+                        .Where(c => !commitsChecked.Contains(c))
+                        .ToList();
+
+                    depth++;
                 }
-
-                foreach (var h in currentCommits)
-                {
-                    commitsChecked.Add(h);
-                }
-
-                currentCommits = currentCommits
-                    .Select(h => GetCommit(h))
-                    .SelectMany(c => c.Parents)
-                    .Where(c => !commitsChecked.Contains(c))
-                    .ToList();
-
-                depth++;
             }
 
             // default to hash of last commit if no tags are found
@@ -236,19 +239,34 @@ namespace Nordseth.Git
             {
                 CommitId = commitHash,
                 Branch = branch,
-                CommitAuthor = $"{commit.Author.Name} <{commit.Author.Email}>",
-                CommitDate = commit.Author.When.DateTime.ToString("u"),
+                CommitAuthor = $"{commit.Author?.Name} <{commit.Author?.Email}>",
+                CommitDate = commit.Author?.When.DateTime.ToString("u"),
                 CommitMessage = commit.MessageShort,
             };
 
-            if (_config == null)
+            try
             {
-                LoadConfig();
+                if (_config == null)
+                {
+                    LoadConfig();
+                }
+
+                info.OriginUrl = _config["remote", "origin", "url"]?.FirstOrDefault();
+            }
+            catch (Exception ex)
+            {
+                info.CommitDescription = $"ERROR! failed to read origin url: {ex.Message}";
             }
 
-            info.OriginUrl = _config["remote", "origin", "url"]?.FirstOrDefault();
+            try
+            {
+                info.CommitDescription = DescribeCommit(commit.Id);
+            }
+            catch (Exception ex)
+            {
+                info.CommitDescription = $"ERROR! failed to describe: {ex.Message}";
+            }
 
-            info.CommitDescription = DescribeCommit(commit.Id);
             return info;
         }
 

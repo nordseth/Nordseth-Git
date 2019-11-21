@@ -86,26 +86,20 @@ namespace Nordseth.Git
         }
 
         // https://github.com/ChimeraCoder/gitgo/blob/master/verify-pack.go#L188
+        // that didn't work, so lets try
+        // https://github.com/choffmeister/gitnet/blob/4d907623d5ce2d79a8875aee82e718c12a8aad0b/src/GitNet/GitBinaryReaderWriter.cs
         public static int ReadMbsOffsetInt(this Stream stream)
         {
-            int offset = 0;
-            int bytesRead = 0;
-            bool mbs = true;
+            int offset = -1;
+            byte b;
 
-            while (mbs)
+            do
             {
-                bytesRead++;
-
-                var byteRead = stream.ReadByteWithCheck();
-
-                offset = (offset << 7) + (byteRead & 0b_0111_1111);
-                mbs = byteRead >= 128;
+                offset++;
+                b = (byte)stream.ReadByteWithCheck();
+                offset = (offset << 7) + (b & 127);
             }
-
-            if (bytesRead >= 2)
-            {
-                offset += (1 << (7 * (bytesRead - 1)));
-            }
+            while ((b & (byte)128) != 0);
 
             return offset;
         }
