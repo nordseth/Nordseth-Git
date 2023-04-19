@@ -24,5 +24,7 @@ jobs:
       run: dotnet restore
     - name: Build
       run: dotnet build --no-restore
+    - name: Setup test data
+      run: mkdir testdata && cd testdata && git clone https://github.com/libgit2/libgit2.git --no-checkout
     - name: Test
       run: dotnet test --no-build --verbosity normal
