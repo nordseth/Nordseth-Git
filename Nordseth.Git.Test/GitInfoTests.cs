@@ -10,24 +10,18 @@ namespace Nordseth.Git.Test
     public class GitInfoTests
     {
         [TestMethod]
-        [DataRow("testrepo")]
-        [DataRow("testrepo2")]
-        [DataRow("testrepo3")]
-        public void GitInfo_Head(string repoConfigName)
+        public void GitInfo_Head()
         {
-            var repo = new Repo(TestHelper.Config[repoConfigName]);
+            var repo = new Repo(TestHelper.RepoPath);
             var info = repo.GetGitInfo();
 
             Console.WriteLine(info);
         }
 
         [TestMethod]
-        [DataRow("testrepo")]
-        [DataRow("testrepo2")]
-        [DataRow("testrepo3")]
-        public void GitInfo_Describe_Commit(string repoConfigName)
+        public void GitInfo_Describe_Commit()
         {
-            var repo = new Repo(TestHelper.Config[repoConfigName]);
+            var repo = new Repo(TestHelper.RepoPath);
             var head = repo.GetHead();
             string description = repo.DescribeCommit(head.hash);
             Console.WriteLine(description);
