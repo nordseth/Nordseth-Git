@@ -65,8 +65,8 @@ namespace Nordseth.Git.Test
         [TestMethod]
         [DataRow("refs/heads/main")]
         [DataRow("refs/remotes/origin/main")]
-        [DataRow("refs/tags/v0.11.0")]
-        [DataRow("refs/tags/v0.16.0")]
+        [DataRow("refs/tags/v1.7.1")]
+        [DataRow("refs/tags/v1.9.1")]
         public void Repo_Get_Ref(string refName)
         {
             var repo = new Repo(TestHelper.RepoPath);
