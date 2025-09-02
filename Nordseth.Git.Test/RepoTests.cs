@@ -77,8 +77,8 @@ namespace Nordseth.Git.Test
         }
 
         [TestMethod]
-        [DataRow("69438c4b92b41d8971afe7cde933add34d148d4a")]
-        [DataRow("e4b897ff5d1ca5177ec5053c08c717df332320b1")]
+        [DataRow("338e6fb681369ff0537719095e22ce9dc602dbf0")]
+        [DataRow("58d9363f02f1fa39e46d49b604f27008e75b72f2")]
         public void Repo_Read_Commit(string hash)
         {
             var repo = new Repo(TestHelper.RepoPath);
@@ -89,9 +89,10 @@ namespace Nordseth.Git.Test
         }
 
         [TestMethod]
-        [DataRow("ce33b743f107cd59efec00bcabd094e01ec9826d")]
-        [DataRow("f1fffd4099c89ef8bee315430afbd6c5ba3ed42a")]
+        [DataRow("009b917af7ee2700faf624dc339c2e34d41e754e")]
         [DataRow("3a10be144189e635044782d76888e40d1d862afa")]
+        [DataRow("ca761c2a1767ebea1640c3004a402b097431bfee")]
+        [DataRow("ea4539f35d42ffe0ece5d5d18fa3cc4108fdb775")]
         public void Repo_Read_Tree(string hash)
         {
             var repo = new Repo(TestHelper.RepoPath);
