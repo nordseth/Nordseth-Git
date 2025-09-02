@@ -53,6 +53,22 @@ namespace Nordseth.Git.Test
         }
 
         [TestMethod]
+        [DataRow("refs/tags/v1.7.1")]
+        [DataRow("refs/remotes/origin/maint/v1.9")]
+        public void Repo_Enumerate_PackedRefs(string expectedRef)
+        {
+            var repo = new Repo(TestHelper.RepoPath);
+            var refs = repo.EnumeratePackedRefs().ToList();
+
+            Console.WriteLine($"found {refs.Count} packed refs");
+
+            var foundRef = refs.FirstOrDefault(r => r.Item1 == expectedRef);
+            Assert.IsNotNull(foundRef);
+            Console.WriteLine($"{foundRef.name} = {foundRef.hash}");
+            Assert.AreEqual(expectedRef, foundRef.name);
+        }
+
+        [TestMethod]
         public void Repo_Get_Head()
         {
             var repo = new Repo(TestHelper.RepoPath);
