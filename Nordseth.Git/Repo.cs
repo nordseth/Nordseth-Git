@@ -69,6 +69,41 @@ namespace Nordseth.Git
                     yield return r;
                 }
             }
+
+            if (path == "refs")
+            {
+                foreach (var r in EnumeratePackedRefs())
+                {
+                    yield return r;
+                }
+            }
+        }
+
+        public IEnumerable<(string name, string hash)> EnumeratePackedRefs()
+        {
+            var packedRefsPath = Path.Combine(RepoPath, "packed-refs");
+            if (!File.Exists(packedRefsPath))
+            {
+                yield break;
+            }
+
+            foreach (var line in File.ReadLines(packedRefsPath))
+            {
+                if (line.StartsWith("#") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+                if (line.StartsWith("^"))
+                {
+                    // skip peeled tags
+                    continue;
+                }
+                var split = line.Split(' ');
+                if (split.Length == 2)
+                {
+                    yield return (split[1], split[0]);
+                }
+            }
         }
 
         public string FindRef(string refName)
@@ -78,10 +113,14 @@ namespace Nordseth.Git
             {
                 return File.ReadLines(filePath).First();
             }
-            else
+
+            var packedRef = EnumeratePackedRefs().FirstOrDefault(r => r.name == refName);
+            if (packedRef != default)
             {
-                return null;
+                return packedRef.hash;
             }
+
+            return null;
         }
 
         public (string refName, string hash) GetHead()

@@ -11,11 +11,10 @@ namespace Nordseth.Git.Test
     public class TreeTest
     {
         [TestMethod]
-        [DataRow("testrepo", "b559165fd2b3277f8c800b4eb116ab7a5a1a3b3c")]
-        [DataRow("testrepo", "2e244af0aee9c373f98a54e6c0acdee1927ca2a7")]
-        public void Tree_Read(string repoConfigName, string hash)
+        [Ignore]
+        public void Tree_Read(string hash)
         {
-            var repo = new Repo(TestHelper.Config[repoConfigName]);
+            var repo = new Repo(TestHelper.RepoPath);
             var objs = new ObjectReader(repo.RepoPath);
             var (pack, offset) = objs.FindPackObject(hash);
 

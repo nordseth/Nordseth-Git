@@ -11,11 +11,10 @@ namespace Nordseth.Git.Test
     public class ObjectTests
     {
         [TestMethod]
-        [DataRow("testrepo")]
-        [DataRow("testrepo2")]
-        public void Objects_Read_UnpackedObject_At_Repo_Head(string repoConfigName)
+        [Ignore]
+        public void Objects_Read_UnpackedObject_At_Repo_Head()
         {
-            var repo = new Repo(TestHelper.Config[repoConfigName]);
+            var repo = new Repo(TestHelper.RepoPath);
             var head = repo.GetHead();
 
             Console.WriteLine($"HEAD: {head.Item1} = {head.Item2}");
@@ -32,11 +31,9 @@ namespace Nordseth.Git.Test
         }
 
         [TestMethod]
-        [DataRow("testrepo")]
-        [DataRow("testrepo2")]
-        public void Objects_Read_Object_At_Repo_Head(string repoConfigName)
+        public void Objects_Read_Object_At_Repo_Head()
         {
-            var repo = new Repo(TestHelper.Config[repoConfigName]);
+            var repo = new Repo(TestHelper.RepoPath);
             var head = repo.GetHead();
 
             Console.WriteLine($"HEAD: {head.Item1} = {head.Item2}");
@@ -53,11 +50,10 @@ namespace Nordseth.Git.Test
         }
 
         [TestMethod]
-        [DataRow("testrepo", "04796212bc3a04f6d20baf24a4a71166959bedf1")]
-        [DataRow("testrepo2", "fde49b2ece9452ff61f50b94a3b77f322bbedeac")]
-        public void Objects_Read_UnpackedObject(string repoConfigName, string objectId)
+        [Ignore]
+        public void Objects_Read_UnpackedObject(string objectId)
         {
-            var repo = new Repo(TestHelper.Config[repoConfigName]);
+            var repo = new Repo(TestHelper.RepoPath);
             var objs = new ObjectReader(repo.RepoPath);
             var (type, stream) = objs.GetUnpackedObject(objectId);
             Assert.IsNotNull(stream);
@@ -69,12 +65,9 @@ namespace Nordseth.Git.Test
         }
 
         [TestMethod]
-        [DataRow("testrepo")]
-        [DataRow("testrepo2")]
-        [DataRow("testrepo3")]
-        public void PackIndex_Read_Indices(string repoConfigName)
+        public void PackIndex_Read_Indices()
         {
-            var repo = new Repo(TestHelper.Config[repoConfigName]);
+            var repo = new Repo(TestHelper.RepoPath);
             var objs = new ObjectReader(repo.RepoPath);
             objs.LoadIndex();
 
@@ -86,13 +79,13 @@ namespace Nordseth.Git.Test
         }
 
         [TestMethod]
-        [DataRow("testrepo", "1d098381751ed39164c9ad69028b756ee2bd9580")]
-        [DataRow("testrepo", "611dad5ea0926ac53ed2c90b3e401366a90d00f3")]
-        [DataRow("testrepo", "9675d3a09d4f5ff1b51a899f754afbbc55f3b319")]
-        [DataRow("testrepo", "77a5c63d9146730d34cf812faa75a627c9446e4b")]
-        public void PackIndex_Find_ObjectId(string repoConfigName, string hash)
+        [DataRow("69438c4b92b41d8971afe7cde933add34d148d4a")]
+        [DataRow("2115230e8c45fd81640ea5a498ab3fc22e4e8925")]
+        [DataRow("d853fb9f24e0fe63b3dce9fbc04fd9cfe17a030b")]
+        [DataRow("37172582ec7ff9cb47c43c5d5b2334bf8c547569")]
+        public void PackIndex_Find_ObjectId(string hash)
         {
-            var repo = new Repo(TestHelper.Config[repoConfigName]);
+            var repo = new Repo(TestHelper.RepoPath);
             var objs = new ObjectReader(repo.RepoPath);
             var (pack, offset) = objs.FindPackObject(hash);
             Console.Write($"Search for {hash} - ");

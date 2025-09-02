@@ -11,11 +11,9 @@ namespace Nordseth.Git.Test
     public class RepoTests
     {
         [TestMethod]
-        [DataRow("testrepo")]
-        [DataRow("testrepo2")]
-        public void Repo_Open(string repoConfigName)
+        public void Repo_Open()
         {
-            var repo = new Repo(TestHelper.Config[repoConfigName]);
+            var repo = new Repo(TestHelper.RepoPath);
         }
 
         [TestMethod]
@@ -34,22 +32,18 @@ namespace Nordseth.Git.Test
         }
 
         [TestMethod]
-        [DataRow("testrepo")]
-        [DataRow("testrepo2")]
-        public void Repo_Read_Config(string repoConfigName)
+        public void Repo_Read_Config()
         {
-            var repo = new Repo(TestHelper.Config[repoConfigName]);
+            var repo = new Repo(TestHelper.RepoPath);
             var config = repo.LoadConfig();
 
             Console.WriteLine(config);
         }
 
         [TestMethod]
-        [DataRow("testrepo")]
-        [DataRow("testrepo2")]
-        public void Repo_Enumerate_Refs(string repoConfigName)
+        public void Repo_Enumerate_Refs()
         {
-            var repo = new Repo(TestHelper.Config[repoConfigName]);
+            var repo = new Repo(TestHelper.RepoPath);
             var refs = repo.EnumerateRefs().ToList();
 
             foreach (var r in refs)
@@ -59,12 +53,25 @@ namespace Nordseth.Git.Test
         }
 
         [TestMethod]
-        [DataRow("testrepo")]
-        [DataRow("testrepo2")]
-        [DataRow("testrepo3")]
-        public void Repo_Get_Head(string repoConfigName)
+        [DataRow("refs/tags/v1.7.1")]
+        [DataRow("refs/remotes/origin/maint/v1.9")]
+        public void Repo_Enumerate_PackedRefs(string expectedRef)
         {
-            var repo = new Repo(TestHelper.Config[repoConfigName]);
+            var repo = new Repo(TestHelper.RepoPath);
+            var refs = repo.EnumeratePackedRefs().ToList();
+
+            Console.WriteLine($"found {refs.Count} packed refs");
+
+            var foundRef = refs.FirstOrDefault(r => r.Item1 == expectedRef);
+            Assert.IsNotNull(foundRef);
+            Console.WriteLine($"{foundRef.name} = {foundRef.hash}");
+            Assert.AreEqual(expectedRef, foundRef.name);
+        }
+
+        [TestMethod]
+        public void Repo_Get_Head()
+        {
+            var repo = new Repo(TestHelper.RepoPath);
             var (refName, hash) = repo.GetHead();
             Assert.IsNotNull(hash);
 
@@ -72,23 +79,25 @@ namespace Nordseth.Git.Test
         }
 
         [TestMethod]
-        [DataRow("testrepo", "refs/heads/master")]
-        [DataRow("testrepo", "refs/heads/dummy")]
-        [DataRow("testrepo", "refs/remotes/origin/heads/master")]
-        public void Repo_Get_Ref(string repoConfigName, string refName)
+        [DataRow("refs/heads/main")]
+        [DataRow("refs/remotes/origin/main")]
+        [DataRow("refs/tags/v1.7.1")]
+        [DataRow("refs/tags/v1.9.1")]
+        public void Repo_Get_Ref(string refName)
         {
-            var repo = new Repo(TestHelper.Config[repoConfigName]);
+            var repo = new Repo(TestHelper.RepoPath);
             var hash = repo.FindRef(refName);
 
             Console.WriteLine($"{refName} = {hash}");
+            Assert.IsNotNull(hash);
         }
 
         [TestMethod]
-        [DataRow("testrepo2", "872206c2cb834fda85a9ec4f31b8d41929446a2c")]
-        [DataRow("testrepo3", "61fad27e7ed90854eaab7d74ed913918003de4f7")]
-        public void Repo_Read_Commit(string repoConfigName, string hash)
+        [DataRow("338e6fb681369ff0537719095e22ce9dc602dbf0")]
+        [DataRow("58d9363f02f1fa39e46d49b604f27008e75b72f2")]
+        public void Repo_Read_Commit(string hash)
         {
-            var repo = new Repo(TestHelper.Config[repoConfigName]);
+            var repo = new Repo(TestHelper.RepoPath);
             var commit = repo.GetCommit(hash);
 
             Assert.IsNotNull(commit);
@@ -96,12 +105,13 @@ namespace Nordseth.Git.Test
         }
 
         [TestMethod]
-        [DataRow("testrepo", "b559165fd2b3277f8c800b4eb116ab7a5a1a3b3c")]
-        [DataRow("testrepo", "2e244af0aee9c373f98a54e6c0acdee1927ca2a7")]
-        [DataRow("testrepo2", "fde49b2ece9452ff61f50b94a3b77f322bbedeac")]
-        public void Repo_Read_Tree(string repoConfigName, string hash)
+        [DataRow("009b917af7ee2700faf624dc339c2e34d41e754e")]
+        [DataRow("3a10be144189e635044782d76888e40d1d862afa")]
+        [DataRow("ca761c2a1767ebea1640c3004a402b097431bfee")]
+        [DataRow("ea4539f35d42ffe0ece5d5d18fa3cc4108fdb775")]
+        public void Repo_Read_Tree(string hash)
         {
-            var repo = new Repo(TestHelper.Config[repoConfigName]);
+            var repo = new Repo(TestHelper.RepoPath);
             var tree = repo.GetTree(hash);
 
             Assert.IsNotNull(tree);
@@ -113,10 +123,10 @@ namespace Nordseth.Git.Test
         }
 
         [TestMethod]
-        [DataRow("testrepo3", 5)]
-        public void Repo_Read_Commit_Log(string repoConfigName, int number)
+        [DataRow(5)]
+        public void Repo_Read_Commit_Log(int number)
         {
-            var repo = new Repo(TestHelper.Config[repoConfigName]);
+            var repo = new Repo(TestHelper.RepoPath);
             var head = repo.GetHead();
             Console.WriteLine($"HEAD: {head.Item1} = {head.Item2}");
 
