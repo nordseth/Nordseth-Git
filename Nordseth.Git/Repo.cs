@@ -81,12 +81,13 @@ namespace Nordseth.Git
 
         public IEnumerable<(string name, string hash)> EnumeratePackedRefs()
         {
-            if (!File.Exists(Path.Combine(RepoPath, "packed-refs")))
+            var packedRefsPath = Path.Combine(RepoPath, "packed-refs");
+            if (!File.Exists(packedRefsPath))
             {
                 yield break;
             }
 
-            foreach (var line in File.ReadLines(Path.Combine(RepoPath, "packed-refs")))
+            foreach (var line in File.ReadLines(packedRefsPath))
             {
                 if (line.StartsWith("#") || string.IsNullOrWhiteSpace(line))
                 {
