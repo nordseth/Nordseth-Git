@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
+using System.IO.Compression;
 
 namespace Nordseth.Git
 {
@@ -86,7 +85,7 @@ namespace Nordseth.Git
             {
                 // read 20 byte ref id
                 var objectId = new byte[20];
-                stream.Read(objectId, 0, 20);
+                stream.ReadExactly(objectId, 0, 20);
                 entry.RefObjectId = objectId;
             }
 
@@ -99,7 +98,7 @@ namespace Nordseth.Git
             var fileStream = File.OpenRead(Path.Combine(_packPath, $"{packName}.pack"));
 
             var entry = ReadPackEntryHeader(packName, offset, fileStream);
-            var entryStream = new ICSharpCode.SharpZipLib.Zip.Compression.Streams.InflaterInputStream(fileStream);
+            var entryStream = new ZLibStream(fileStream, CompressionMode.Decompress);
 
             return (entry, entryStream);
         }

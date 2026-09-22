@@ -100,7 +100,7 @@ namespace Nordseth.Git
         private void Read(Stream stream)
         {
             var buffer = new byte[8];
-            stream.Read(buffer, 0, 8);
+            stream.ReadExactly(buffer, 0, 8);
 
             Version = GetIndexVersion(buffer);
             if (Version == 2)
@@ -132,11 +132,7 @@ namespace Nordseth.Git
             var buffer = new byte[24 * objects];
             Array.Copy(oldBuffer, 0, buffer, 0, oldBuffer.Length);
             var toRead = buffer.Length - oldBuffer.Length;
-            int read = stream.Read(buffer, oldBuffer.Length, toRead);
-            if (read != toRead)
-            {
-                throw new Exception($"error reading index data, read {read} bytes, expected {toRead}");
-            }
+            stream.ReadExactly(buffer, oldBuffer.Length, toRead);
 
             _objectIds = new byte[20 * objects];
             _offsets = new int[objects];
@@ -153,11 +149,7 @@ namespace Nordseth.Git
         private void ReadOffsets(Stream stream, int objects)
         {
             var buffer = new byte[objects * 4];
-            int read = stream.Read(buffer, 0, buffer.Length);
-            if (read != buffer.Length)
-            {
-                throw new Exception($"error reading offsets, read {read} bytes, expected {buffer.Length}");
-            }
+            stream.ReadExactly(buffer, 0, buffer.Length);
 
             _offsets = new int[objects];
             for (int i = 0; i < objects; i++)
@@ -170,21 +162,13 @@ namespace Nordseth.Git
         private void ReadObjectIds(Stream stream, int objects)
         {
             _objectIds = new byte[20 * objects];
-            int read = stream.Read(_objectIds, 0, _objectIds.Length);
-            if (read != _objectIds.Length)
-            {
-                throw new Exception($"error reading object names, read {read} bytes, expected {_objectIds.Length}");
-            }
+            stream.ReadExactly(_objectIds, 0, _objectIds.Length);
         }
 
         private void ReadFanoutTable(Stream stream)
         {
             var buffer = new byte[256 * 4];
-            int read = stream.Read(buffer, 0, buffer.Length);
-            if (read != buffer.Length)
-            {
-                throw new Exception($"error reading fanout table, read {read} bytes, expected {buffer.Length}");
-            }
+            stream.ReadExactly(buffer, 0, buffer.Length);
 
             _fanOutTable = new int[256];
             for (int i = 0; i < 256; i++)
