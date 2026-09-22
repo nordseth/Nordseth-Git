@@ -1,102 +1,110 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
+namespace Nordseth.Git.Test;
 
-namespace Nordseth.Git.Test
+[TestClass]
+public class ObjectTests
 {
-    [TestClass]
-    public class ObjectTests
+    private static PackedScenario _scenario = null!;
+
+    [ClassInitialize]
+    public static void Init(TestContext context)
     {
-        [TestMethod]
-        [Ignore]
-        public void Objects_Read_UnpackedObject_At_Repo_Head()
+        _scenario = PackedScenario.Create();
+    }
+
+    [ClassCleanup]
+    public static void Cleanup()
+    {
+        _scenario.Dispose();
+    }
+
+    [TestMethod]
+    public void Objects_Read_UnpackedObject()
+    {
+        var head = _scenario.Commits[4];
+        var objs = new ObjectReader(_scenario.Fake.GitDir);
+
+        var (type, stream) = objs.GetUnpackedObject(head);
+
+        Assert.AreEqual(ObjectType.commit, type);
+        Assert.AreEqual(head, FakeRepoGit.HashObject("commit", stream.ReadAllBytes()));
+    }
+
+    [TestMethod]
+    public void Objects_Read_UnpackedObject_NotLoose()
+    {
+        var objs = new ObjectReader(_scenario.Fake.GitDir);
+
+        var (_, stream) = objs.GetUnpackedObject(_scenario.Commits[0]);
+
+        Assert.IsNull(stream);
+    }
+
+    [TestMethod]
+    public void Objects_AllObjects_RoundTrip()
+    {
+        var s = _scenario;
+        var objs = new ObjectReader(s.Fake.GitDir);
+
+        var expected = s.AllPacked.Select(p => (p.obj.Id, (string?)p.obj.Type))
+            .Concat(s.LooseObjects.Select(id => (id, (string?)null)));
+
+        var failures = new List<string>();
+        foreach (var (id, expectedType) in expected)
         {
-            var repo = new Repo(TestHelper.RepoPath);
-            var head = repo.GetHead();
-
-            Console.WriteLine($"HEAD: {head.Item1} = {head.Item2}");
-            Assert.IsNotNull(head.Item2);
-
-            var objs = new ObjectReader(repo.RepoPath);
-            var (type, stream) = objs.GetUnpackedObject(head.Item2);
-            Assert.IsNotNull(stream);
-            Console.WriteLine($"type: {type}");
-            using (var reader = new StreamReader(stream))
+            var (type, stream) = objs.GetObject(id);
+            if (stream == null)
             {
-                Console.WriteLine(reader.ReadToEnd());
+                failures.Add($"{id}: not found");
+                continue;
+            }
+
+            var actual = FakeRepoGit.HashObject(type.ToString(), stream.ReadAllBytes());
+            if (actual != id || (expectedType != null && expectedType != type.ToString()))
+            {
+                failures.Add($"{id}: read as {type} {actual}, expected {expectedType}");
             }
         }
 
-        [TestMethod]
-        public void Objects_Read_Object_At_Repo_Head()
+        Assert.AreEqual(0, failures.Count, string.Join(Environment.NewLine, failures));
+    }
+
+    [TestMethod]
+    public void PackIndex_Read_Indices()
+    {
+        var s = _scenario;
+        var objs = new ObjectReader(s.Fake.GitDir);
+        objs.LoadIndex();
+
+        var indices = objs.PackIndex.OrderBy(i => i.Name == s.PackA ? 0 : 1).ToList();
+
+        CollectionAssert.AreEqual(new[] { s.PackA, s.PackB }, indices.Select(i => i.Name).ToList());
+        Assert.IsTrue(indices.All(i => i.Version == 2));
+        Assert.AreEqual(s.VerifyA.Count, indices[0].Objects);
+        Assert.AreEqual(s.VerifyB.Count, indices[1].Objects);
+    }
+
+    [TestMethod]
+    public void PackIndex_Find_ObjectId()
+    {
+        var objs = new ObjectReader(_scenario.Fake.GitDir);
+
+        foreach (var (pack, obj) in _scenario.AllPacked)
         {
-            var repo = new Repo(TestHelper.RepoPath);
-            var head = repo.GetHead();
+            var (foundPack, offset) = objs.FindPackObject(obj.Id);
 
-            Console.WriteLine($"HEAD: {head.Item1} = {head.Item2}");
-            Assert.IsNotNull(head.Item2);
-
-            var objs = new ObjectReader(repo.RepoPath);
-            var (type, stream) = objs.GetObject(head.Item2);
-            Assert.IsNotNull(stream);
-            Console.WriteLine($"type: {type}");
-            using (var reader = new StreamReader(stream))
-            {
-                Console.WriteLine(reader.ReadToEnd());
-            }
+            Assert.AreEqual(pack, foundPack, obj.Id);
+            Assert.AreEqual(obj.Offset, offset, obj.Id);
         }
+    }
 
-        [TestMethod]
-        [Ignore]
-        public void Objects_Read_UnpackedObject(string objectId)
-        {
-            var repo = new Repo(TestHelper.RepoPath);
-            var objs = new ObjectReader(repo.RepoPath);
-            var (type, stream) = objs.GetUnpackedObject(objectId);
-            Assert.IsNotNull(stream);
-            Console.WriteLine($"type: {type}");
-            using (var reader = new StreamReader(stream))
-            {
-                Console.WriteLine(reader.ReadToEnd());
-            }
-        }
+    [TestMethod]
+    public void PackIndex_Find_ObjectId_Missing()
+    {
+        var objs = new ObjectReader(_scenario.Fake.GitDir);
 
-        [TestMethod]
-        public void PackIndex_Read_Indices()
-        {
-            var repo = new Repo(TestHelper.RepoPath);
-            var objs = new ObjectReader(repo.RepoPath);
-            objs.LoadIndex();
+        var (pack, offset) = objs.FindPackObject(new string('c', 40));
 
-            Console.WriteLine($"indices: {objs.PackIndex.Count()}");
-            foreach (var i in objs.PackIndex)
-            {
-                Console.WriteLine($"{i.Name} - v{i.Version} - {i.Objects} objects");
-            }
-        }
-
-        [TestMethod]
-        [DataRow("69438c4b92b41d8971afe7cde933add34d148d4a")]
-        [DataRow("2115230e8c45fd81640ea5a498ab3fc22e4e8925")]
-        [DataRow("d853fb9f24e0fe63b3dce9fbc04fd9cfe17a030b")]
-        [DataRow("37172582ec7ff9cb47c43c5d5b2334bf8c547569")]
-        public void PackIndex_Find_ObjectId(string hash)
-        {
-            var repo = new Repo(TestHelper.RepoPath);
-            var objs = new ObjectReader(repo.RepoPath);
-            var (pack, offset) = objs.FindPackObject(hash);
-            Console.Write($"Search for {hash} - ");
-            if (pack != null)
-            {
-                Console.WriteLine($"found in {pack}, offset {offset}");
-            }
-            else
-            {
-                Console.WriteLine($"not found");
-            }
-        }
+        Assert.IsNull(pack);
+        Assert.AreEqual(-1, offset);
     }
 }
