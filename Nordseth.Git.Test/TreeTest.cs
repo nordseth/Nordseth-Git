@@ -1,34 +1,52 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace Nordseth.Git.Test
+namespace Nordseth.Git.Test;
+
+[TestClass]
+public class TreeTest
 {
-    [TestClass]
-    public class TreeTest
+    private static PackedScenario _scenario = null!;
+
+    [ClassInitialize]
+    public static void Init(TestContext context)
     {
-        [TestMethod]
-        [Ignore]
-        public void Tree_Read(string hash)
+        _scenario = PackedScenario.Create();
+    }
+
+    [ClassCleanup]
+    public static void Cleanup()
+    {
+        _scenario.Dispose();
+    }
+
+    [TestMethod]
+    public void Tree_Read()
+    {
+        var s = _scenario;
+        var (pack, obj) = s.AllPacked.First(p => p.obj.Type == "tree" && p.obj.Depth == 0);
+        var packReader = new PackReader(s.Fake.GitDir);
+
+        var (entry, stream) = packReader.ReadPackEntry(pack, (int)obj.Offset);
+        Assert.AreEqual(PackObjectType.OBJ_TREE, entry.Type);
+
+        List<Tree> tree;
+        using (stream)
         {
-            var repo = new Repo(TestHelper.RepoPath);
-            var objs = new ObjectReader(repo.RepoPath);
-            var (pack, offset) = objs.FindPackObject(hash);
-
-            var packReader = new PackReader(repo.RepoPath);
-            Assert.IsNotNull(pack);
-            var (entry, stream) = packReader.ReadPackEntry(pack, offset);
-            Console.WriteLine(entry);
-
-            Assert.AreEqual(PackObjectType.OBJ_TREE, entry.Type);
-            var tree = new ObjectParser().ReadTree(stream).ToList();
-            foreach (var e in tree)
-            {
-                Console.WriteLine(e);
-            }
+            tree = new ObjectParser().ReadTree(stream).ToList();
         }
+
+        var expected = s.TreeEntries[obj.Id].Select(e => $"{e.mode} {e.name} {e.hash}").ToList();
+        CollectionAssert.AreEqual(expected, tree.Select(t => t.ToString()).ToList());
+    }
+
+    [TestMethod]
+    public void Tree_Read_Subtree_Mode()
+    {
+        var s = _scenario;
+        var tree = s.Open().GetTree(s.Trees[1]);
+
+        var sub = tree.Single(t => t.Name == "sub");
+        Assert.AreEqual("40000", sub.Mode);
+        Assert.AreEqual(s.SubTree, sub.Ref);
     }
 }

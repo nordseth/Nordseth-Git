@@ -1,30 +1,41 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Text;
 
-namespace Nordseth.Git.Test
+namespace Nordseth.Git.Test;
+
+[TestClass]
+public class DeltaTests
 {
-    [TestClass]
-    public class DeltaTests
+    private static PackedScenario _scenario = null!;
+
+    [ClassInitialize]
+    public static void Init(TestContext context)
     {
-        [TestMethod]
-        [DataRow("fd8430bc864cfcd5f10e5590f8a447e01b942bfe")]
-        [DataRow("784bab3ee7da6133af679cae7527c4fe4a99b949")]
-        [DataRow("d9a911419a68706317e4df3d3cc403e755fcae3b")]
-        public void Delta_Read_Object(string hash)
+        _scenario = PackedScenario.Create();
+    }
+
+    [ClassCleanup]
+    public static void Cleanup()
+    {
+        _scenario.Dispose();
+    }
+
+    [TestMethod]
+    [DataRow("A", DisplayName = "ofs delta")]
+    [DataRow("B", DisplayName = "ref delta")]
+    public void Delta_Read_Object(string packName)
+    {
+        var s = _scenario;
+        var verify = packName == "A" ? s.VerifyA : s.VerifyB;
+        var delta = verify.First(o => o.Type == "blob" && o.Depth > 0);
+        var objs = new ObjectReader(s.Fake.GitDir);
+
+        var (type, stream) = objs.GetObject(delta.Id);
+        Assert.IsNotNull(stream);
+
+        using (var reader = new StreamReader(stream))
         {
-            var repo = new Repo(TestHelper.RepoPath);
-            var objs = new ObjectReader(repo.RepoPath);
-
-            var (type, stream) = objs.GetObject(hash);
-            Assert.IsNotNull(stream);
-
-            using (var writer = new StreamReader(stream))
-            {
-                Console.Write(writer.ReadToEnd());
-            }
+            Assert.AreEqual(ObjectType.blob, type);
+            Assert.AreEqual(s.BlobTexts[delta.Id], reader.ReadToEnd());
         }
     }
 }

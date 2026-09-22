@@ -1,144 +1,241 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text;
 
-namespace Nordseth.Git.Test
+namespace Nordseth.Git.Test;
+
+[TestClass]
+public class RepoTests
 {
-    [TestClass]
-    public class RepoTests
+    private static PackedScenario _scenario = null!;
+
+    [ClassInitialize]
+    public static void Init(TestContext context)
     {
-        [TestMethod]
-        public void Repo_Open()
+        _scenario = PackedScenario.Create();
+    }
+
+    [ClassCleanup]
+    public static void Cleanup()
+    {
+        _scenario.Dispose();
+    }
+
+    [TestMethod]
+    public void Repo_Open_WorkDir()
+    {
+        var repo = new Repo(_scenario.Fake.WorkDir);
+
+        Assert.AreEqual(_scenario.Fake.GitDir, repo.RepoPath);
+    }
+
+    [TestMethod]
+    public void Repo_Open_GitDir()
+    {
+        var repo = new Repo(_scenario.Fake.GitDir);
+
+        Assert.AreEqual(_scenario.Fake.GitDir, repo.RepoPath);
+    }
+
+    [TestMethod]
+    public void Repo_Open_Invalid()
+    {
+        var emptyDir = Directory.CreateTempSubdirectory("nordseth-git-tests-");
+        try
         {
-            var repo = new Repo(TestHelper.RepoPath);
+            Assert.Throws<InvalidOperationException>(() => new Repo(emptyDir.FullName));
+        }
+        finally
+        {
+            emptyDir.Delete(true);
+        }
+    }
+
+    [TestMethod]
+    public void Repo_Read_Config()
+    {
+        var config = _scenario.Open().LoadConfig();
+
+        CollectionAssert.AreEqual(new[] { PackedScenario.OriginUrl }, config["remote", "origin", "url"].ToList());
+    }
+
+    [TestMethod]
+    public void Repo_Enumerate_Refs()
+    {
+        var s = _scenario;
+        var refs = s.Open().EnumerateRefs().OrderBy(r => r.name, StringComparer.Ordinal).ToList();
+
+        var expected = new List<(string, string)>
+        {
+            ("refs/heads/main", s.Commits[4]),
+            ("refs/heads/old", s.Commits[0]),
+            ("refs/tags/lw", s.Commits[1]),
+            ("refs/tags/v0.9", s.OldTag),
+            ("refs/tags/v1.0", s.Tag),
+        };
+        CollectionAssert.AreEqual(expected, refs);
+    }
+
+    [TestMethod]
+    public void Repo_Enumerate_Refs_MatchesGit()
+    {
+        var refs = _scenario.Open().EnumerateRefs()
+            .Select(r => $"{r.hash} {r.name}")
+            .OrderBy(r => r, StringComparer.Ordinal)
+            .ToList();
+
+        var expected = _scenario.Fake.Git(null, "for-each-ref", "--format=%(objectname) %(refname)")
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .OrderBy(r => r, StringComparer.Ordinal)
+            .ToList();
+        CollectionAssert.AreEqual(expected, refs);
+    }
+
+    [TestMethod]
+    public void Repo_Enumerate_PackedRefs()
+    {
+        var s = _scenario;
+        var refs = s.Open().EnumeratePackedRefs().ToList();
+
+        var expected = new List<(string, string)>
+        {
+            ("refs/heads/old", s.Commits[0]),
+            ("refs/tags/lw", s.Commits[1]),
+            ("refs/tags/v0.9", s.OldTag),
+        };
+        CollectionAssert.AreEqual(expected, refs);
+    }
+
+    [TestMethod]
+    public void Repo_Get_Head()
+    {
+        var (refName, hash) = _scenario.Open().GetHead();
+
+        Assert.AreEqual("refs/heads/main", refName);
+        Assert.AreEqual(_scenario.Commits[4], hash);
+    }
+
+    [TestMethod]
+    public void Repo_Get_Head_Detached()
+    {
+        using (var fake = new FakeRepo())
+        {
+            var commit = fake.WriteChain(1)[0];
+            File.WriteAllText(Path.Combine(fake.GitDir, "HEAD"), commit + "\n");
+
+            var (refName, hash) = fake.Open().GetHead();
+
+            Assert.IsNull(refName);
+            Assert.AreEqual(commit, hash);
+        }
+    }
+
+    [TestMethod]
+    [DataRow("refs/heads/main", 4)]
+    [DataRow("refs/heads/old", 0)]
+    [DataRow("refs/tags/lw", 1)]
+    public void Repo_Get_Ref(string refName, int commitIndex)
+    {
+        var hash = _scenario.Open().FindRef(refName);
+
+        Assert.AreEqual(_scenario.Commits[commitIndex], hash);
+    }
+
+    [TestMethod]
+    public void Repo_Get_Ref_Missing()
+    {
+        Assert.IsNull(_scenario.Open().FindRef("refs/heads/missing"));
+    }
+
+    [TestMethod]
+    [DataRow(4, DisplayName = "Commit loose")]
+    [DataRow(2, DisplayName = "Commit pack B (ref delta)")]
+    [DataRow(0, DisplayName = "Commit pack A (ofs delta)")]
+    public void Repo_Read_Commit(int i)
+    {
+        var s = _scenario;
+        var commit = s.Open().GetCommit(s.Commits[i]);
+
+        Assert.IsNotNull(commit);
+        Assert.AreEqual(s.Commits[i], commit.Id);
+        Assert.AreEqual(s.Trees[i], commit.Tree);
+        CollectionAssert.AreEqual(i == 0 ? new string[0] : new[] { s.Commits[i - 1] }, commit.Parents.ToList());
+        Assert.AreEqual("A U Thor", commit.Author.Name?.Trim());
+        Assert.AreEqual("author@example.com", commit.Author.Email);
+        Assert.AreEqual(1700000000, commit.Author.When.ToUnixTimeSeconds());
+        Assert.AreEqual("author@example.com", commit.Committer.Email);
+        Assert.AreEqual($"commit {i + 1}", commit.MessageShort);
+        Assert.AreEqual($"commit {i + 1}\n\nbody {i + 1}", commit.Message.Replace("\r\n", "\n"));
+    }
+
+    [TestMethod]
+    public void Repo_Read_Commit_NotACommit()
+    {
+        Assert.IsNull(_scenario.Open().GetCommit(_scenario.Trees[0]));
+    }
+
+    [TestMethod]
+    [DataRow(4, DisplayName = "Tree loose")]
+    [DataRow(3, DisplayName = "Tree pack B")]
+    [DataRow(1, DisplayName = "Tree pack A, with subtree")]
+    public void Repo_Read_Tree(int i)
+    {
+        var s = _scenario;
+        var tree = s.Open().GetTree(s.Trees[i]);
+
+        var expected = s.TreeEntries[s.Trees[i]].Select(e => $"{e.mode} {e.name} {e.hash}").ToList();
+        CollectionAssert.AreEqual(expected, tree.Select(t => t.ToString()).ToList());
+    }
+
+    [TestMethod]
+    [DataRow(4, DisplayName = "Blob loose")]
+    [DataRow(3, DisplayName = "Blob pack B")]
+    [DataRow(0, DisplayName = "Blob pack A")]
+    public void Repo_Read_Blob(int i)
+    {
+        var s = _scenario;
+        var content = s.Open().GetBlob(s.Blobs[i]).ReadAllBytes();
+
+        Assert.AreEqual(s.BlobTexts[s.Blobs[i]], Encoding.UTF8.GetString(content));
+    }
+
+    [TestMethod]
+    public void Repo_Read_Tag_Annotated()
+    {
+        var s = _scenario;
+        var tag = s.Open().GetTag(s.Tag);
+
+        Assert.AreEqual(s.Tag, tag.Id);
+        Assert.AreEqual("v1.0", tag.Name);
+        Assert.AreEqual(s.Commits[2], tag.Commit);
+        Assert.AreEqual("author@example.com", tag.Tagger.Email);
+        Assert.AreEqual("release 1.0", tag.MessageShort);
+    }
+
+    [TestMethod]
+    public void Repo_Read_Tag_Lightweight()
+    {
+        var s = _scenario;
+        var tag = s.Open().GetTag(s.Commits[1]);
+
+        Assert.AreEqual(s.Commits[1], tag.Commit);
+        Assert.IsNull(tag.Name);
+    }
+
+    [TestMethod]
+    public void Repo_Read_Commit_Log()
+    {
+        var repo = _scenario.Open();
+
+        var log = new List<string>();
+        var commitId = repo.GetHead().hash;
+        while (commitId != null)
+        {
+            log.Add(commitId);
+            commitId = repo.GetCommit(commitId).Parents.FirstOrDefault();
         }
 
-        [TestMethod]
-        [DataRow("../../../")]
-        public void Repo_Open_Invalid(string path)
-        {
-            try
-            {
-                var repo = new Repo(path);
-                Assert.Fail("Should throw exception");
-            }
-            catch (InvalidOperationException)
-            {
-                // ok
-            }
-        }
+        CollectionAssert.AreEqual(_scenario.Commits.Reverse().ToList(), log);
 
-        [TestMethod]
-        public void Repo_Read_Config()
-        {
-            var repo = new Repo(TestHelper.RepoPath);
-            var config = repo.LoadConfig();
-
-            Console.WriteLine(config);
-        }
-
-        [TestMethod]
-        public void Repo_Enumerate_Refs()
-        {
-            var repo = new Repo(TestHelper.RepoPath);
-            var refs = repo.EnumerateRefs().ToList();
-
-            foreach (var r in refs)
-            {
-                Console.WriteLine($"{r.Item1} = {r.Item2}");
-            }
-        }
-
-        [TestMethod]
-        [DataRow("refs/tags/v1.7.1")]
-        [DataRow("refs/remotes/origin/maint/v1.9")]
-        public void Repo_Enumerate_PackedRefs(string expectedRef)
-        {
-            var repo = new Repo(TestHelper.RepoPath);
-            var refs = repo.EnumeratePackedRefs().ToList();
-
-            Console.WriteLine($"found {refs.Count} packed refs");
-
-            var foundRef = refs.FirstOrDefault(r => r.Item1 == expectedRef);
-            Assert.IsNotNull(foundRef);
-            Console.WriteLine($"{foundRef.name} = {foundRef.hash}");
-            Assert.AreEqual(expectedRef, foundRef.name);
-        }
-
-        [TestMethod]
-        public void Repo_Get_Head()
-        {
-            var repo = new Repo(TestHelper.RepoPath);
-            var (refName, hash) = repo.GetHead();
-            Assert.IsNotNull(hash);
-
-            Console.WriteLine($"{refName} = {hash}");
-        }
-
-        [TestMethod]
-        [DataRow("refs/heads/main")]
-        [DataRow("refs/remotes/origin/main")]
-        [DataRow("refs/tags/v1.7.1")]
-        [DataRow("refs/tags/v1.9.1")]
-        public void Repo_Get_Ref(string refName)
-        {
-            var repo = new Repo(TestHelper.RepoPath);
-            var hash = repo.FindRef(refName);
-
-            Console.WriteLine($"{refName} = {hash}");
-            Assert.IsNotNull(hash);
-        }
-
-        [TestMethod]
-        [DataRow("338e6fb681369ff0537719095e22ce9dc602dbf0")]
-        [DataRow("58d9363f02f1fa39e46d49b604f27008e75b72f2")]
-        public void Repo_Read_Commit(string hash)
-        {
-            var repo = new Repo(TestHelper.RepoPath);
-            var commit = repo.GetCommit(hash);
-
-            Assert.IsNotNull(commit);
-            Console.WriteLine(commit);
-        }
-
-        [TestMethod]
-        [DataRow("009b917af7ee2700faf624dc339c2e34d41e754e")]
-        [DataRow("3a10be144189e635044782d76888e40d1d862afa")]
-        [DataRow("ca761c2a1767ebea1640c3004a402b097431bfee")]
-        [DataRow("ea4539f35d42ffe0ece5d5d18fa3cc4108fdb775")]
-        public void Repo_Read_Tree(string hash)
-        {
-            var repo = new Repo(TestHelper.RepoPath);
-            var tree = repo.GetTree(hash);
-
-            Assert.IsNotNull(tree);
-            Assert.IsTrue(tree.Any());
-            foreach (var i in tree)
-            {
-                Console.WriteLine(i);
-            }
-        }
-
-        [TestMethod]
-        [DataRow(5)]
-        public void Repo_Read_Commit_Log(int number)
-        {
-            var repo = new Repo(TestHelper.RepoPath);
-            var head = repo.GetHead();
-            Console.WriteLine($"HEAD: {head.Item1} = {head.Item2}");
-
-            string commitId = head.Item2;
-            for (int i = 0; i < number; i++)
-            {
-                var commit = repo.GetCommit(commitId);
-
-                Assert.IsNotNull(commit);
-                Console.WriteLine(commit);
-                commitId = commit.Parents.FirstOrDefault();
-            }
-        }
+        var gitLog = _scenario.Fake.Git(null, "rev-list", "HEAD").Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        CollectionAssert.AreEqual(gitLog, log);
     }
 }
