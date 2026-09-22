@@ -1,7 +1,6 @@
-﻿using ICSharpCode.SharpZipLib.Zip.Compression.Streams;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 
 namespace Nordseth.Git
@@ -27,7 +26,7 @@ namespace Nordseth.Git
         public static string DescribeDelta(Stream fileStream)
         {
             var writer = new StringBuilder();
-            using (var stream = new InflaterInputStream(fileStream))
+            using (var stream = new ZLibStream(fileStream, CompressionMode.Decompress))
             {
                 int sourceLen = stream.ReadMbsInt();
                 int targetLen = stream.ReadMbsInt();

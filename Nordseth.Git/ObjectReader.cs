@@ -1,7 +1,7 @@
-﻿using ICSharpCode.SharpZipLib.Zip.Compression.Streams;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 
@@ -118,7 +118,7 @@ namespace Nordseth.Git
 
         public (ObjectType objectType, Stream objectStream) ReadUnpackedObject(Stream stream)
         {
-            var reader = new InflaterInputStream(stream);
+            var reader = new ZLibStream(stream, CompressionMode.Decompress);
             var buffer = new byte[100];
             int i = 0;
             while (true)
