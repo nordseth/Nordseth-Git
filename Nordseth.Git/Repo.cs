@@ -1,332 +1,326 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+﻿namespace Nordseth.Git;
 
-namespace Nordseth.Git
+public class Repo
 {
-    public class Repo
+    private const int ShortHashLenght = 7;
+
+    private readonly ObjectParser _objectParser;
+    private readonly GitConfigReader _configReader;
+    private readonly ObjectReader _objectReader;
+
+    private GitConfig _config;
+
+    public Repo(string path)
     {
-        private const int ShortHashLenght = 7;
-
-        private readonly ObjectParser _objectParser;
-        private readonly GitConfigReader _configReader;
-        private readonly ObjectReader _objectReader;
-
-        private GitConfig _config;
-
-        public Repo(string path)
+        if (path.EndsWith(".git") && Directory.Exists(path))
         {
-            if (path.EndsWith(".git") && Directory.Exists(path))
-            {
-                RepoPath = path;
-            }
-            else if (Directory.Exists(Path.Combine(path, ".git")))
-            {
-                RepoPath = Path.Combine(path, ".git");
-            }
-            else
-            {
-                // todo support .git file with gitdir
-                throw new InvalidOperationException($"Cannot find folder {path}");
-            }
-
-            ValidateGitFolder(RepoPath);
-
-            _objectParser = new ObjectParser();
-            _configReader = new GitConfigReader();
-            _objectReader = new ObjectReader(RepoPath);
+            RepoPath = path;
+        }
+        else if (Directory.Exists(Path.Combine(path, ".git")))
+        {
+            RepoPath = Path.Combine(path, ".git");
+        }
+        else
+        {
+            // todo support .git file with gitdir
+            throw new InvalidOperationException($"Cannot find folder {path}");
         }
 
-        public string RepoPath { get; }
+        ValidateGitFolder(RepoPath);
 
-        public GitConfig LoadConfig()
+        _objectParser = new ObjectParser();
+        _configReader = new GitConfigReader();
+        _objectReader = new ObjectReader(RepoPath);
+    }
+
+    public string RepoPath { get; }
+
+    public GitConfig LoadConfig()
+    {
+        using (var configStream = File.OpenRead(Path.Combine(RepoPath, "config")))
         {
-            using (var configStream = File.OpenRead(Path.Combine(RepoPath, "config")))
-            {
-                var sections = _configReader.Read(configStream);
-                _config = new GitConfig { Sections = sections };
-            }
-
-            return _config;
+            var sections = _configReader.Read(configStream);
+            _config = new GitConfig { Sections = sections };
         }
 
-        public IEnumerable<(string name, string hash)> EnumerateRefs(string path = "refs")
+        return _config;
+    }
+
+    public IEnumerable<(string name, string hash)> EnumerateRefs(string path = "refs")
+    {
+        foreach (var f in Directory.EnumerateFiles(Path.Combine(RepoPath, path)))
         {
-            foreach (var f in Directory.EnumerateFiles(Path.Combine(RepoPath, path)))
-            {
-                yield return ($"{path}/{Path.GetFileName(f)}", File.ReadLines(f).First());
-            }
+            yield return ($"{path}/{Path.GetFileName(f)}", File.ReadLines(f).First());
+        }
 
-            foreach (var d in Directory.EnumerateDirectories(Path.Combine(RepoPath, path)))
+        foreach (var d in Directory.EnumerateDirectories(Path.Combine(RepoPath, path)))
+        {
+            var dirName = Path.GetFileName(d);
+            foreach (var r in EnumerateRefs($"{path}/{dirName}"))
             {
-                var dirName = Path.GetFileName(d);
-                foreach (var r in EnumerateRefs($"{path}/{dirName}"))
-                {
-                    yield return r;
-                }
-            }
-
-            if (path == "refs")
-            {
-                foreach (var r in EnumeratePackedRefs())
-                {
-                    yield return r;
-                }
+                yield return r;
             }
         }
 
-        public IEnumerable<(string name, string hash)> EnumeratePackedRefs()
+        if (path == "refs")
         {
-            var packedRefsPath = Path.Combine(RepoPath, "packed-refs");
-            if (!File.Exists(packedRefsPath))
+            foreach (var r in EnumeratePackedRefs())
             {
-                yield break;
-            }
-
-            foreach (var line in File.ReadLines(packedRefsPath))
-            {
-                if (line.StartsWith("#") || string.IsNullOrWhiteSpace(line))
-                {
-                    continue;
-                }
-                if (line.StartsWith("^"))
-                {
-                    // skip peeled tags
-                    continue;
-                }
-                var split = line.Split(' ');
-                if (split.Length == 2)
-                {
-                    yield return (split[1], split[0]);
-                }
+                yield return r;
             }
         }
+    }
 
-        public string FindRef(string refName)
+    public IEnumerable<(string name, string hash)> EnumeratePackedRefs()
+    {
+        var packedRefsPath = Path.Combine(RepoPath, "packed-refs");
+        if (!File.Exists(packedRefsPath))
         {
-            var filePath = Path.Combine(RepoPath, refName);
-            if (File.Exists(filePath))
-            {
-                return File.ReadLines(filePath).First();
-            }
+            yield break;
+        }
 
-            var packedRef = EnumeratePackedRefs().FirstOrDefault(r => r.name == refName);
-            if (packedRef != default)
+        foreach (var line in File.ReadLines(packedRefsPath))
+        {
+            if (line.StartsWith("#") || string.IsNullOrWhiteSpace(line))
             {
-                return packedRef.hash;
+                continue;
             }
+            if (line.StartsWith("^"))
+            {
+                // skip peeled tags
+                continue;
+            }
+            var split = line.Split(' ');
+            if (split.Length == 2)
+            {
+                yield return (split[1], split[0]);
+            }
+        }
+    }
 
+    public string FindRef(string refName)
+    {
+        var filePath = Path.Combine(RepoPath, refName);
+        if (File.Exists(filePath))
+        {
+            return File.ReadLines(filePath).First();
+        }
+
+        var packedRef = EnumeratePackedRefs().FirstOrDefault(r => r.name == refName);
+        if (packedRef != default)
+        {
+            return packedRef.hash;
+        }
+
+        return null;
+    }
+
+    public (string refName, string hash) GetHead()
+    {
+        var head = File.ReadLines(Path.Combine(RepoPath, "HEAD")).First();
+        if (head.StartsWith("ref: "))
+        {
+            var headRef = head.Substring(5);
+            return (headRef, FindRef(headRef));
+        }
+        else
+        {
+            return (null, head);
+        }
+    }
+
+    public Commit GetCommit(string hash)
+    {
+        var (type, stream) = _objectReader.GetObject(hash);
+        if (type == ObjectType.commit)
+        {
+            return _objectParser.ReadCommit(hash, stream);
+        }
+        else
+        {
+            stream.Dispose();
             return null;
         }
+    }
 
-        public (string refName, string hash) GetHead()
+    public IEnumerable<Tree> GetTree(string hash)
+    {
+        var (type, stream) = _objectReader.GetObject(hash);
+        if (type == ObjectType.tree)
         {
-            var head = File.ReadLines(Path.Combine(RepoPath, "HEAD")).First();
-            if (head.StartsWith("ref: "))
+            return _objectParser.ReadTree(stream).ToList();
+        }
+        else
+        {
+            stream.Dispose();
+            return null;
+        }
+    }
+
+    public Stream GetBlob(string hash)
+    {
+        var (type, stream) = _objectReader.GetObject(hash);
+        if (type == ObjectType.blob)
+        {
+            return stream;
+        }
+        else
+        {
+            stream.Dispose();
+            return null;
+        }
+    }
+
+    public Tag GetTag(string hash)
+    {
+        var (type, stream) = _objectReader.GetObject(hash);
+        if (type == ObjectType.commit)
+        {
+            stream.Dispose();
+            return new Tag
             {
-                var headRef = head.Substring(5);
-                return (headRef, FindRef(headRef));
-            }
-            else
-            {
-                return (null, head);
-            }
+                Commit = hash,
+            };
+        }
+        else if (type == ObjectType.tag)
+        {
+            return _objectParser.ReadTag(hash, stream);
+        }
+        else
+        {
+            stream.Dispose();
+            return null;
+        }
+    }
+
+    public string DescribeCommit(string commitHash)
+    {
+        var commit = GetCommit(commitHash);
+        if (commit == null)
+        {
+            throw new InvalidOperationException($"{commit} is not a commit");
         }
 
-        public Commit GetCommit(string hash)
-        {
-            var (type, stream) = _objectReader.GetObject(hash);
-            if (type == ObjectType.commit)
-            {
-                return _objectParser.ReadCommit(hash, stream);
-            }
-            else
-            {
-                stream.Dispose();
-                return null;
-            }
-        }
+        var tagRefs = EnumerateRefs("refs/tags");
+        var tags = tagRefs.Select(r => GetTag(r.hash))
+            .Where(t => t.Name != null)
+            .OrderByDescending(t => t.Tagger.When)
+            .ToList();
 
-        public IEnumerable<Tree> GetTree(string hash)
+        if (tags.Any())
         {
-            var (type, stream) = _objectReader.GetObject(hash);
-            if (type == ObjectType.tree)
+            int depth = 0;
+            var commitsChecked = new HashSet<string>();
+            IEnumerable<string> currentCommits = new[] { commitHash };
+            while (currentCommits.Any())
             {
-                return _objectParser.ReadTree(stream).ToList();
-            }
-            else
-            {
-                stream.Dispose();
-                return null;
-            }
-        }
-
-        public Stream GetBlob(string hash)
-        {
-            var (type, stream) = _objectReader.GetObject(hash);
-            if (type == ObjectType.blob)
-            {
-                return stream;
-            }
-            else
-            {
-                stream.Dispose();
-                return null;
-            }
-        }
-
-        public Tag GetTag(string hash)
-        {
-            var (type, stream) = _objectReader.GetObject(hash);
-            if (type == ObjectType.commit)
-            {
-                stream.Dispose();
-                return new Tag
+                var tag = tags.FirstOrDefault(t => currentCommits.Any(c => c == t.Commit));
+                if (tag != null)
                 {
-                    Commit = hash,
-                };
-            }
-            else if (type == ObjectType.tag)
-            {
-                return _objectParser.ReadTag(hash, stream);
-            }
-            else
-            {
-                stream.Dispose();
-                return null;
+                    if (depth == 0)
+                    {
+                        return tag.Name;
+                    }
+                    else
+                    {
+                        return $"{tag.Name}-{depth}-{commitHash.Substring(0, ShortHashLenght)}";
+                    }
+                }
+
+                foreach (var h in currentCommits)
+                {
+                    commitsChecked.Add(h);
+                }
+
+                currentCommits = currentCommits
+                    .Select(h => GetCommit(h))
+                    .SelectMany(c => c.Parents)
+                    .Where(c => !commitsChecked.Contains(c))
+                    .ToList();
+
+                depth++;
             }
         }
 
-        public string DescribeCommit(string commitHash)
+        // default to hash of last commit if no tags are found
+        return commitHash.Substring(0, ShortHashLenght);
+    }
+
+    public GitInfo GetGitInfo(string commitHash = null)
+    {
+        Commit commit;
+        string branch = null;
+        if (commitHash == null)
         {
-            var commit = GetCommit(commitHash);
+            var (refName, hash) = GetHead();
+            commitHash = hash;
+            branch = refName;
+            commit = GetCommit(hash);
+        }
+        else
+        {
+            commit = GetCommit(commitHash);
             if (commit == null)
             {
-                throw new InvalidOperationException($"{commit} is not a commit");
+                throw new Exception($"Commit {commitHash} not found");
             }
-
-            var tagRefs = EnumerateRefs("refs/tags");
-            var tags = tagRefs.Select(r => GetTag(r.hash))
-                .Where(t => t.Name != null)
-                .OrderByDescending(t => t.Tagger.When)
-                .ToList();
-
-            if (tags.Any())
-            {
-                int depth = 0;
-                var commitsChecked = new HashSet<string>();
-                IEnumerable<string> currentCommits = new[] { commitHash };
-                while (currentCommits.Any())
-                {
-                    var tag = tags.FirstOrDefault(t => currentCommits.Any(c => c == t.Commit));
-                    if (tag != null)
-                    {
-                        if (depth == 0)
-                        {
-                            return tag.Name;
-                        }
-                        else
-                        {
-                            return $"{tag.Name}-{depth}-{commitHash.Substring(0, ShortHashLenght)}";
-                        }
-                    }
-
-                    foreach (var h in currentCommits)
-                    {
-                        commitsChecked.Add(h);
-                    }
-
-                    currentCommits = currentCommits
-                        .Select(h => GetCommit(h))
-                        .SelectMany(c => c.Parents)
-                        .Where(c => !commitsChecked.Contains(c))
-                        .ToList();
-
-                    depth++;
-                }
-            }
-
-            // default to hash of last commit if no tags are found
-            return commitHash.Substring(0, ShortHashLenght);
         }
 
-        public GitInfo GetGitInfo(string commitHash = null)
+        var info = new GitInfo
         {
-            Commit commit;
-            string branch = null;
-            if (commitHash == null)
+            CommitId = commitHash,
+            Branch = branch,
+            CommitAuthor = $"{commit.Author?.Name} <{commit.Author?.Email}>",
+            CommitDate = commit.Author?.When.DateTime.ToString("u"),
+            CommitMessage = commit.MessageShort,
+        };
+
+        try
+        {
+            if (_config == null)
             {
-                var (refName, hash) = GetHead();
-                commitHash = hash;
-                branch = refName;
-                commit = GetCommit(hash);
-            }
-            else
-            {
-                commit = GetCommit(commitHash);
-                if (commit == null)
-                {
-                    throw new Exception($"Commit {commitHash} not found");
-                }
+                LoadConfig();
             }
 
-            var info = new GitInfo
-            {
-                CommitId = commitHash,
-                Branch = branch,
-                CommitAuthor = $"{commit.Author?.Name} <{commit.Author?.Email}>",
-                CommitDate = commit.Author?.When.DateTime.ToString("u"),
-                CommitMessage = commit.MessageShort,
-            };
-
-            try
-            {
-                if (_config == null)
-                {
-                    LoadConfig();
-                }
-
-                info.OriginUrl = _config["remote", "origin", "url"]?.FirstOrDefault();
-            }
-            catch (Exception ex)
-            {
-                info.CommitDescription = $"ERROR! failed to read origin url: {ex.Message}";
-            }
-
-            try
-            {
-                info.CommitDescription = DescribeCommit(commit.Id);
-            }
-            catch (Exception ex)
-            {
-                info.CommitDescription = $"ERROR! failed to describe: {ex.Message}";
-            }
-
-            return info;
+            info.OriginUrl = _config["remote", "origin", "url"]?.FirstOrDefault();
+        }
+        catch (Exception ex)
+        {
+            info.CommitDescription = $"ERROR! failed to read origin url: {ex.Message}";
         }
 
-        private static void ValidateGitFolder(string gitFolder)
+        try
         {
-            if (!Directory.Exists(Path.Combine(gitFolder, "refs")))
-            {
-                throw new InvalidOperationException($"Invalid git repo {gitFolder}");
-            }
+            info.CommitDescription = DescribeCommit(commit.Id);
+        }
+        catch (Exception ex)
+        {
+            info.CommitDescription = $"ERROR! failed to describe: {ex.Message}";
+        }
 
-            if (!Directory.Exists(Path.Combine(gitFolder, "objects")))
-            {
-                throw new InvalidOperationException($"Invalid git repo {gitFolder}");
-            }
+        return info;
+    }
 
-            if (!File.Exists(Path.Combine(gitFolder, "HEAD")))
-            {
-                throw new InvalidOperationException($"Invalid git repo {gitFolder}");
-            }
+    private static void ValidateGitFolder(string gitFolder)
+    {
+        if (!Directory.Exists(Path.Combine(gitFolder, "refs")))
+        {
+            throw new InvalidOperationException($"Invalid git repo {gitFolder}");
+        }
 
-            if (!File.Exists(Path.Combine(gitFolder, "config")))
-            {
-                throw new InvalidOperationException($"Invalid git repo {gitFolder}");
-            }
+        if (!Directory.Exists(Path.Combine(gitFolder, "objects")))
+        {
+            throw new InvalidOperationException($"Invalid git repo {gitFolder}");
+        }
+
+        if (!File.Exists(Path.Combine(gitFolder, "HEAD")))
+        {
+            throw new InvalidOperationException($"Invalid git repo {gitFolder}");
+        }
+
+        if (!File.Exists(Path.Combine(gitFolder, "config")))
+        {
+            throw new InvalidOperationException($"Invalid git repo {gitFolder}");
         }
     }
 }

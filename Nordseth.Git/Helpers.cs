@@ -1,107 +1,101 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
+﻿namespace Nordseth.Git;
 
-namespace Nordseth.Git
+public static class Helpers
 {
-    public static class Helpers
+    public static string ToHexString(this byte[] hash) => BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
+
+    public static byte[] HexToBytes(this string hex)
     {
-        public static string ToHexString(this byte[] hash) => BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
-
-        public static byte[] HexToBytes(this string hex)
+        if (hex.Length % 2 == 1)
         {
-            if (hex.Length % 2 == 1)
-            {
-                throw new Exception("The binary key cannot have an odd number of digits");
-            }
-
-            byte[] arr = new byte[hex.Length >> 1];
-
-            for (int i = 0; i < hex.Length >> 1; ++i)
-            {
-                arr[i] = (byte)((GetHexVal(hex[i << 1]) << 4) + (GetHexVal(hex[(i << 1) + 1])));
-            }
-
-            return arr;
+            throw new Exception("The binary key cannot have an odd number of digits");
         }
 
-        private static int GetHexVal(char hex)
+        byte[] arr = new byte[hex.Length >> 1];
+
+        for (int i = 0; i < hex.Length >> 1; ++i)
         {
-            int val = (int)hex;
-            //For uppercase A-F letters:
-            //return val - (val < 58 ? 48 : 55);
-            //For lowercase a-f letters:
-            //return val - (val < 58 ? 48 : 87);
-            //Or the two combined, but a bit slower:
-            return val - (val < 58 ? 48 : (val < 97 ? 55 : 87));
+            arr[i] = (byte)((GetHexVal(hex[i << 1]) << 4) + (GetHexVal(hex[(i << 1) + 1])));
         }
 
-        public static ObjectType ToObjectType(this PackObjectType packObjectType)
+        return arr;
+    }
+
+    private static int GetHexVal(char hex)
+    {
+        int val = (int)hex;
+        //For uppercase A-F letters:
+        //return val - (val < 58 ? 48 : 55);
+        //For lowercase a-f letters:
+        //return val - (val < 58 ? 48 : 87);
+        //Or the two combined, but a bit slower:
+        return val - (val < 58 ? 48 : (val < 97 ? 55 : 87));
+    }
+
+    public static ObjectType ToObjectType(this PackObjectType packObjectType)
+    {
+        switch (packObjectType)
         {
-            switch (packObjectType)
+            case PackObjectType.OBJ_COMMIT:
+            case PackObjectType.OBJ_TREE:
+            case PackObjectType.OBJ_BLOB:
+            case PackObjectType.OBJ_TAG:
+                return (ObjectType)packObjectType;
+            case PackObjectType.OBJ_OFS_DELTA:
+            case PackObjectType.OBJ_REF_DELTA:
+            default:
+                return 0;
+        }
+    }
+
+    public static int ReadByteWithCheck(this Stream s)
+    {
+        int read = s.ReadByte();
+        if (read == -1)
+        {
+            throw new NotImplementedException($"Read past end of stream");
+        }
+
+        return read;
+    }
+
+    public static int ReadMbsInt(this Stream stream, int initialValue = 0, int initialBit = 0)
+    {
+        int value = initialValue;
+        int currentBit = initialBit;
+        while (true)
+        {
+            var read = ReadByteWithCheck(stream);
+
+            int byteRead = (read & 0b_0111_1111) << currentBit;
+            value |= byteRead;
+            currentBit += 7;
+
+            if (read < 128)
             {
-                case PackObjectType.OBJ_COMMIT:
-                case PackObjectType.OBJ_TREE:
-                case PackObjectType.OBJ_BLOB:
-                case PackObjectType.OBJ_TAG:
-                    return (ObjectType)packObjectType;
-                case PackObjectType.OBJ_OFS_DELTA:
-                case PackObjectType.OBJ_REF_DELTA:
-                default:
-                    return 0;
+                break;
             }
         }
 
-        public static int ReadByteWithCheck(this Stream s)
+        return value;
+    }
+
+    // https://github.com/ChimeraCoder/gitgo/blob/master/verify-pack.go#L188
+    // that didn't work, so lets try
+    // https://github.com/choffmeister/gitnet/blob/4d907623d5ce2d79a8875aee82e718c12a8aad0b/src/GitNet/GitBinaryReaderWriter.cs
+    public static int ReadMbsOffsetInt(this Stream stream)
+    {
+        int offset = -1;
+        byte b;
+
+        do
         {
-            int read = s.ReadByte();
-            if (read == -1)
-            {
-                throw new NotImplementedException($"Read past end of stream");
-            }
-
-            return read;
+            offset++;
+            b = (byte)stream.ReadByteWithCheck();
+            offset = (offset << 7) + (b & 127);
         }
+        while ((b & (byte)128) != 0);
 
-        public static int ReadMbsInt(this Stream stream, int initialValue = 0, int initialBit = 0)
-        {
-            int value = initialValue;
-            int currentBit = initialBit;
-            while (true)
-            {
-                var read = ReadByteWithCheck(stream);
-
-                int byteRead = (read & 0b_0111_1111) << currentBit;
-                value |= byteRead;
-                currentBit += 7;
-
-                if (read < 128)
-                {
-                    break;
-                }
-            }
-
-            return value;
-        }
-
-        // https://github.com/ChimeraCoder/gitgo/blob/master/verify-pack.go#L188
-        // that didn't work, so lets try
-        // https://github.com/choffmeister/gitnet/blob/4d907623d5ce2d79a8875aee82e718c12a8aad0b/src/GitNet/GitBinaryReaderWriter.cs
-        public static int ReadMbsOffsetInt(this Stream stream)
-        {
-            int offset = -1;
-            byte b;
-
-            do
-            {
-                offset++;
-                b = (byte)stream.ReadByteWithCheck();
-                offset = (offset << 7) + (b & 127);
-            }
-            while ((b & (byte)128) != 0);
-
-            return offset;
-        }
+        return offset;
     }
 }
