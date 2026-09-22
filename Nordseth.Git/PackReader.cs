@@ -85,7 +85,7 @@ namespace Nordseth.Git
             {
                 // read 20 byte ref id
                 var objectId = new byte[20];
-                stream.Read(objectId, 0, 20);
+                stream.ReadExactly(objectId, 0, 20);
                 entry.RefObjectId = objectId;
             }
 
