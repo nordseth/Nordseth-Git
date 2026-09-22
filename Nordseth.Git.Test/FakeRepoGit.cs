@@ -62,13 +62,19 @@ public static class FakeRepoGit
     /// <summary>
     /// Packs the given objects into a new pack and returns its name (pack-&lt;sha&gt;).
     /// Deltas use OBJ_OFS_DELTA when <paramref name="ofsDelta"/> is set, otherwise OBJ_REF_DELTA.
+    /// <paramref name="indexVersion"/> is passed to --index-version, e.g. "1", or "2,0" to put every offset in the 64-bit table.
     /// </summary>
-    public static string Pack(this FakeRepo repo, IEnumerable<string> hashes, bool ofsDelta)
+    public static string Pack(this FakeRepo repo, IEnumerable<string> hashes, bool ofsDelta, string? indexVersion = null)
     {
         var args = new List<string> { "pack-objects" };
         if (ofsDelta)
         {
             args.Add("--delta-base-offset");
+        }
+
+        if (indexVersion != null)
+        {
+            args.Add($"--index-version={indexVersion}");
         }
 
         args.Add(Path.Combine(repo.GitDir, "objects", "pack", "pack"));

@@ -144,6 +144,12 @@ public sealed class FakeRepo : IDisposable
     {
         try
         {
+            // git writes pack files read-only, which blocks Directory.Delete on Windows
+            foreach (var file in Directory.EnumerateFiles(WorkDir, "*", SearchOption.AllDirectories))
+            {
+                File.SetAttributes(file, FileAttributes.Normal);
+            }
+
             Directory.Delete(WorkDir, true);
         }
         catch (IOException)
