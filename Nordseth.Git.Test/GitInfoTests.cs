@@ -1,5 +1,3 @@
-using System.Text;
-
 namespace Nordseth.Git.Test;
 
 [TestClass]
@@ -45,5 +43,23 @@ public class GitInfoTests
 
         var expected = expectedPrefix.EndsWith("-") ? expectedPrefix + PackedScenario.Short(s.Commits[i]) : expectedPrefix;
         Assert.AreEqual(expected, description);
+    }
+
+    [TestMethod]
+    public void GitInfo_ConfigReadFailure_ReportedInOriginUrl()
+    {
+        // own repo, since this test deletes the config
+        using (var fake = new FakeRepo())
+        {
+            var c = fake.WriteChain(1);
+            fake.WriteRef("refs/heads/main", c[0]);
+            var repo = fake.Open();
+            File.Delete(Path.Combine(fake.GitDir, "config"));
+
+            var info = repo.GetGitInfo();
+
+            StringAssert.Contains(info.OriginUrl ?? string.Empty, "failed to read origin url");
+            Assert.AreEqual(FakeRepo.Short(c[0]), info.CommitDescription);
+        }
     }
 }
