@@ -62,4 +62,22 @@ public class GitInfoTests
             Assert.AreEqual(FakeRepo.Short(c[0]), info.CommitDescription);
         }
     }
+
+    // Guard: passes today only because ParseSignature (A4) keeps the UTC wall clock in When.DateTime.
+    // Once A4 is fixed, CommitDate must be formatted from When.UtcDateTime.
+    [TestMethod]
+    [DataRow("+0100")]
+    [DataRow("-0530")]
+    public void GitInfo_CommitDate_IsUtc(string timezone)
+    {
+        using (var fake = new FakeRepo())
+        {
+            var commit = fake.WriteCommit(fake.WriteTree(), null, author: $"A U Thor <author@example.com> 1700000000 {timezone}");
+            fake.WriteRef("refs/heads/main", commit);
+
+            var info = fake.Open().GetGitInfo();
+
+            Assert.AreEqual("2023-11-14 22:13:20Z", info.CommitDate);
+        }
+    }
 }
