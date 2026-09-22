@@ -27,7 +27,7 @@ public class PackEntry
     public int Size { get; }
 
     public int? RefOffset { get; set; }
-    public byte[] RefObjectId { get; set; }
+    public byte[]? RefObjectId { get; set; }
 
     public int Offset { get; }
     public long ContentOffset { get; set; }
@@ -100,7 +100,7 @@ public class PackReader
         return (entry, entryStream);
     }
 
-    public IEnumerable<PackEntry> ReadPackEntryHeaderWithRefs(string hash, Func<string, (string, int)> findObject)
+    public IEnumerable<PackEntry>? ReadPackEntryHeaderWithRefs(string hash, Func<string, (string?, int)> findObject)
     {
         var (pack, offset) = findObject(hash);
         if (pack == null)
@@ -119,11 +119,18 @@ public class PackReader
 
                 if (entry.Type == PackObjectType.OBJ_REF_DELTA)
                 {
-                    (pack, offset) = findObject(entry.RefObjectId.ToHexString());
+                    var (basePack, baseOffset) = findObject(entry.RefObjectId!.ToHexString());
+                    if (basePack is null)
+                    {
+                        // base not in any pack (loose object or missing)
+                        break;
+                    }
+
+                    (pack, offset) = (basePack, baseOffset);
                 }
                 else if (entry.Type == PackObjectType.OBJ_OFS_DELTA)
                 {
-                    offset = offset - entry.RefOffset.Value;
+                    offset = offset - entry.RefOffset!.Value;
                 }
                 else
                 {

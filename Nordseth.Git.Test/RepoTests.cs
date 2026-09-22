@@ -54,7 +54,7 @@ public class RepoTests
     {
         var config = _scenario.Open().LoadConfig();
 
-        CollectionAssert.AreEqual(new[] { PackedScenario.OriginUrl }, config["remote", "origin", "url"].ToList());
+        Assert.AreSequenceEqual([PackedScenario.OriginUrl], config["remote", "origin", "url"]?.ToList());
     }
 
     [TestMethod]
@@ -71,7 +71,7 @@ public class RepoTests
             ("refs/tags/v0.9", s.OldTag),
             ("refs/tags/v1.0", s.Tag),
         };
-        CollectionAssert.AreEqual(expected, refs);
+        Assert.AreSequenceEqual(expected, refs);
     }
 
     [TestMethod]
@@ -86,7 +86,7 @@ public class RepoTests
             .Split('\n', StringSplitOptions.RemoveEmptyEntries)
             .OrderBy(r => r, StringComparer.Ordinal)
             .ToList();
-        CollectionAssert.AreEqual(expected, refs);
+        Assert.AreSequenceEqual(expected, refs);
     }
 
     [TestMethod]
@@ -101,7 +101,7 @@ public class RepoTests
             ("refs/tags/lw", s.Commits[1]),
             ("refs/tags/v0.9", s.OldTag),
         };
-        CollectionAssert.AreEqual(expected, refs);
+        Assert.AreSequenceEqual(expected, refs);
     }
 
     [TestMethod]
@@ -157,13 +157,13 @@ public class RepoTests
         Assert.IsNotNull(commit);
         Assert.AreEqual(s.Commits[i], commit.Id);
         Assert.AreEqual(s.Trees[i], commit.Tree);
-        CollectionAssert.AreEqual(i == 0 ? new string[0] : new[] { s.Commits[i - 1] }, commit.Parents.ToList());
-        Assert.AreEqual("A U Thor", commit.Author.Name?.Trim());
-        Assert.AreEqual("author@example.com", commit.Author.Email);
-        Assert.AreEqual(1700000000, commit.Author.When.ToUnixTimeSeconds());
-        Assert.AreEqual("author@example.com", commit.Committer.Email);
+        Assert.AreSequenceEqual(i == 0 ? new string[0] : new[] { s.Commits[i - 1] }, commit.Parents.ToList());
+        Assert.AreEqual("A U Thor", commit.Author?.Name?.Trim());
+        Assert.AreEqual("author@example.com", commit.Author?.Email);
+        Assert.AreEqual(1700000000, commit.Author?.When.ToUnixTimeSeconds());
+        Assert.AreEqual("author@example.com", commit.Committer?.Email);
         Assert.AreEqual($"commit {i + 1}", commit.MessageShort);
-        Assert.AreEqual($"commit {i + 1}\n\nbody {i + 1}", commit.Message.Replace("\r\n", "\n"));
+        Assert.AreEqual($"commit {i + 1}\n\nbody {i + 1}", commit.Message?.Replace("\r\n", "\n"));
     }
 
     [TestMethod]
@@ -182,7 +182,7 @@ public class RepoTests
         var tree = s.Open().GetTree(s.Trees[i]);
 
         var expected = s.TreeEntries[s.Trees[i]].Select(e => $"{e.mode} {e.name} {e.hash}").ToList();
-        CollectionAssert.AreEqual(expected, tree.Select(t => t.ToString()).ToList());
+        Assert.AreSequenceEqual(expected, tree?.Select(t => t.ToString()).ToList());
     }
 
     [TestMethod]
@@ -192,8 +192,9 @@ public class RepoTests
     public void Repo_Read_Blob(int i)
     {
         var s = _scenario;
-        var content = s.Open().GetBlob(s.Blobs[i]).ReadAllBytes();
+        var content = s.Open().GetBlob(s.Blobs[i])?.ReadAllBytes();
 
+        Assert.IsNotNull(content);
         Assert.AreEqual(s.BlobTexts[s.Blobs[i]], Encoding.UTF8.GetString(content));
     }
 
@@ -203,11 +204,11 @@ public class RepoTests
         var s = _scenario;
         var tag = s.Open().GetTag(s.Tag);
 
-        Assert.AreEqual(s.Tag, tag.Id);
-        Assert.AreEqual("v1.0", tag.Name);
-        Assert.AreEqual(s.Commits[2], tag.Commit);
-        Assert.AreEqual("author@example.com", tag.Tagger.Email);
-        Assert.AreEqual("release 1.0", tag.MessageShort);
+        Assert.AreEqual(s.Tag, tag?.Id);
+        Assert.AreEqual("v1.0", tag?.Name);
+        Assert.AreEqual(s.Commits[2], tag?.Commit);
+        Assert.AreEqual("author@example.com", tag?.Tagger?.Email);
+        Assert.AreEqual("release 1.0", tag?.MessageShort);
     }
 
     [TestMethod]
@@ -216,8 +217,8 @@ public class RepoTests
         var s = _scenario;
         var tag = s.Open().GetTag(s.Commits[1]);
 
-        Assert.AreEqual(s.Commits[1], tag.Commit);
-        Assert.IsNull(tag.Name);
+        Assert.AreEqual(s.Commits[1], tag?.Commit);
+        Assert.IsNull(tag?.Name);
     }
 
     [TestMethod]
@@ -230,12 +231,12 @@ public class RepoTests
         while (commitId != null)
         {
             log.Add(commitId);
-            commitId = repo.GetCommit(commitId).Parents.FirstOrDefault();
+            commitId = repo.GetCommit(commitId)?.Parents.FirstOrDefault();
         }
 
-        CollectionAssert.AreEqual(_scenario.Commits.Reverse().ToList(), log);
+        Assert.AreSequenceEqual(_scenario.Commits.Reverse().ToList(), log);
 
         var gitLog = _scenario.Fake.Git(null, "rev-list", "HEAD").Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        CollectionAssert.AreEqual(gitLog, log);
+        Assert.AreSequenceEqual(gitLog, log);
     }
 }

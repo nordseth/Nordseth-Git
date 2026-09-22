@@ -5,20 +5,29 @@ namespace Nordseth.Git;
 
 public class DeltaStream : Stream
 {
-    private Stream _deltaReader;
-    private byte[] _baseObject;
+    private readonly Stream _deltaReader;
+    private readonly byte[] _baseObject;
+    private bool _disposed;
 
     public DeltaStream(Stream delta, Stream baseObject)
     {
-        _deltaReader = delta;
-
-        // read the whole base object!
-        using (baseObject)
+        try
         {
-            var memStream = new MemoryStream();
-            baseObject.CopyTo(memStream);
-            _baseObject = memStream.ToArray();
+            // read the whole base object!
+            using (baseObject)
+            {
+                using var memStream = new MemoryStream();
+                baseObject.CopyTo(memStream);
+                _baseObject = memStream.ToArray();
+            }
         }
+        catch
+        {
+            delta.Dispose();
+            throw;
+        }
+
+        _deltaReader = delta;
     }
 
     public static string DescribeDelta(Stream fileStream)
@@ -62,7 +71,7 @@ public class DeltaStream : Stream
         return writer.ToString();
     }
 
-    public override bool CanRead => true;
+    public override bool CanRead => !_disposed;
     public override bool CanSeek => false;
     public override bool CanWrite => false;
     public override long Length => throw new NotImplementedException();
@@ -80,6 +89,8 @@ public class DeltaStream : Stream
 
     public override int Read(byte[] buffer, int offset, int count)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         if (!_init)
         {
             SourceLength = _deltaReader.ReadMbsInt();
@@ -165,12 +176,18 @@ public class DeltaStream : Stream
 
     protected override void Dispose(bool disposing)
     {
-        _deltaReader?.Dispose();
-        _deltaReader = null;
+        if (_disposed)
+        {
+            return;
+        }
+
         if (disposing)
         {
-            _baseObject = null;
+            _deltaReader.Dispose();
         }
+
+        _disposed = true;
+        base.Dispose(disposing);
     }
 
     private static (int offset, int size) ReadCopy(Stream stream, byte read)

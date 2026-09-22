@@ -2,15 +2,15 @@
 
 namespace Nordseth.Git;
 
-public class Commit
+public record Commit
 {
-    public string Id { get; set; }
-    public string Tree { get; set; }
-    public IEnumerable<string> Parents { get; set; }
-    public Signature Author { get; set; }
-    public Signature Committer { get; set; }
-    public string Message { get; set; }
-    public string MessageShort { get; set; }
+    public required string Id { get; init; }
+    public string? Tree { get; set; }
+    public required IEnumerable<string> Parents { get; init; }
+    public Signature? Author { get; set; }
+    public Signature? Committer { get; set; }
+    public string? Message { get; set; }
+    public string? MessageShort { get; set; }
 
     public override string ToString()
     {
@@ -53,10 +53,10 @@ public class Commit
     }
 }
 
-public class Signature
+public record Signature
 {
-    public string Name { get; set; }
-    public string Email { get; set; }
+    public required string Name { get; init; }
+    public string? Email { get; init; }
     public DateTimeOffset When { get; set; }
 
     public override string ToString()

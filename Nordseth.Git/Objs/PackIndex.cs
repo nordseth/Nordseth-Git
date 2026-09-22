@@ -3,19 +3,34 @@
 public class PackIndex
 {
     private static byte[] _v2Header = new byte[] { 255, 116, 79, 99, 0, 0, 0, 2 };
-    private int[] _fanOutTable;
-    private byte[] _objectIds;
-    private int[] _offsets;
+    private readonly int[] _fanOutTable;
+    private readonly byte[] _objectIds;
+    private readonly int[] _offsets;
 
     public PackIndex(string name, Stream stream)
     {
         Name = name;
-        Read(stream);
+
+        var header = new byte[8];
+        stream.ReadExactly(header);
+
+        Version = header.AsSpan().SequenceEqual(_v2Header) ? 2 : 1;
+        if (Version != 2)
+        {
+            throw new NotSupportedException("Pack index version 1 is not supported");
+        }
+
+        _fanOutTable = ReadFanoutTable(stream);
+        _objectIds = ReadObjectIds(stream, _fanOutTable[255]);
+        // skip crc
+        stream.Seek(_fanOutTable[255] * 4, SeekOrigin.Current);
+        _offsets = ReadOffsets(stream, _fanOutTable[255]);
+        // 8 byte offers not supported
     }
 
     public string Name { get; }
-    public int Version { get; set; }
-    public int Objects => _fanOutTable == null ? throw new InvalidOperationException("index not read") : _fanOutTable[255];
+    public int Version { get; }
+    public int Objects => _fanOutTable[255];
 
     public int? FindObject(byte[] objectId)
     {
@@ -47,9 +62,9 @@ public class PackIndex
         }
     }
 
-    public byte[] FindObjectId(int offset)
+    public byte[]? FindObjectId(int offset)
     {
-        for (int i = 0; i < _fanOutTable[255];i++)
+        for (int i = 0; i < _fanOutTable[255]; i++)
         {
             if (_offsets[i] == offset)
             {
@@ -91,96 +106,38 @@ public class PackIndex
         return true;
     }
 
-    private void Read(Stream stream)
-    {
-        var buffer = new byte[8];
-        stream.ReadExactly(buffer, 0, 8);
-
-        Version = GetIndexVersion(buffer);
-        if (Version == 2)
-        {
-            ReadVersion2(stream);
-        }
-        else
-        {
-            ReadVersion1(buffer, stream);
-        }
-    }
-
-    private void ReadVersion2(Stream stream)
-    {
-        ReadFanoutTable(stream);
-        ReadObjectIds(stream, _fanOutTable[255]);
-        // skip crc
-        stream.Seek(_fanOutTable[255] * 4, SeekOrigin.Current);
-        ReadOffsets(stream, _fanOutTable[255]);
-        // 8 byte offers not supported
-    }
-
-    private void ReadVersion1(byte[] oldBuffer, Stream stream)
-    {
-        ReadFanoutTable(stream);
-
-        int objects = _fanOutTable[255];
-
-        var buffer = new byte[24 * objects];
-        Array.Copy(oldBuffer, 0, buffer, 0, oldBuffer.Length);
-        var toRead = buffer.Length - oldBuffer.Length;
-        stream.ReadExactly(buffer, oldBuffer.Length, toRead);
-
-        _objectIds = new byte[20 * objects];
-        _offsets = new int[objects];
-        for (int i = 0; i < objects; i++)
-        {
-            int int32 = BitConverter.ToInt32(buffer, i * 24);
-            _offsets[i] = System.Net.IPAddress.NetworkToHostOrder(int32);
-            Array.Copy(buffer, i * 24 + 4, _objectIds, i * 20, 20);
-        }
-
-        throw new NotImplementedException($"version 1 index not tested!");
-    }
-
-    private void ReadOffsets(Stream stream, int objects)
+    private static int[] ReadOffsets(Stream stream, int objects)
     {
         var buffer = new byte[objects * 4];
         stream.ReadExactly(buffer, 0, buffer.Length);
 
-        _offsets = new int[objects];
+        var offsets = new int[objects];
         for (int i = 0; i < objects; i++)
         {
             int int32 = BitConverter.ToInt32(buffer, i * 4);
-            _offsets[i] = System.Net.IPAddress.NetworkToHostOrder(int32);
+            offsets[i] = System.Net.IPAddress.NetworkToHostOrder(int32);
         }
+        return offsets;
     }
 
-    private void ReadObjectIds(Stream stream, int objects)
+    private static byte[] ReadObjectIds(Stream stream, int objects)
     {
-        _objectIds = new byte[20 * objects];
-        stream.ReadExactly(_objectIds, 0, _objectIds.Length);
+        var objectIds = new byte[20 * objects];
+        stream.ReadExactly(objectIds, 0, objectIds.Length);
+        return objectIds;
     }
 
-    private void ReadFanoutTable(Stream stream)
+    private static int[] ReadFanoutTable(Stream stream)
     {
         var buffer = new byte[256 * 4];
         stream.ReadExactly(buffer, 0, buffer.Length);
 
-        _fanOutTable = new int[256];
+        var fanOutTable = new int[256];
         for (int i = 0; i < 256; i++)
         {
             int int32 = BitConverter.ToInt32(buffer, i * 4);
-            _fanOutTable[i] = System.Net.IPAddress.NetworkToHostOrder(int32);
+            fanOutTable[i] = System.Net.IPAddress.NetworkToHostOrder(int32);
         }
-    }
-
-    private int GetIndexVersion(byte[] buffer)
-    {
-        if (buffer.SequenceEqual(_v2Header))
-        {
-            return 2;
-        }
-        else
-        {
-            return 1;
-        }
+        return fanOutTable;
     }
 }

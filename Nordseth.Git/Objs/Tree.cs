@@ -1,10 +1,10 @@
 ﻿namespace Nordseth.Git;
 
-public class Tree
+public record Tree
 {
-    public string Mode { get; set; }
-    public string Name { get; set; }
-    public string Ref { get; set; }
+    public required string Mode { get; init; }
+    public required string Name { get; init; }
+    public required string Ref { get; init; }
 
     public override string ToString()
     {

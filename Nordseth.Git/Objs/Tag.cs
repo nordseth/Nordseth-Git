@@ -2,14 +2,14 @@
 
 namespace Nordseth.Git;
 
-public class Tag
+public record Tag
 {
-    public string Id { get; set; }
-    public string Name { get; set; }
-    public string Commit { get; set; }
-    public string Message { get; set; }
-    public string MessageShort { get; set; }
-    public Signature Tagger { get; set; }
+    public string? Id { get; set; }
+    public string? Name { get; set; }
+    public string? Commit { get; set; }
+    public string? Message { get; set; }
+    public string? MessageShort { get; set; }
+    public Signature? Tagger { get; set; }
 
     public override string ToString()
     {

@@ -53,7 +53,7 @@ public static class Helpers
         int read = s.ReadByte();
         if (read == -1)
         {
-            throw new NotImplementedException($"Read past end of stream");
+            throw new EndOfStreamException($"Read past end of stream");
         }
 
         return read;

@@ -4,13 +4,13 @@ namespace Nordseth.Git;
 
 public class GitConfig
 {
-    public IDictionary<KeyValuePair<string, string>, IList<(string, string)>> Sections { get; set; }
+    public required IDictionary<KeyValuePair<string, string?>, IList<(string, string)>> Sections { get; set; }
 
-    public IEnumerable<string> this[string section, string subSection, string key]
+    public IEnumerable<string>? this[string section, string subSection, string key]
     {
         get
         {
-            if (Sections.TryGetValue(new KeyValuePair<string, string>(section,subSection), out var values))
+            if (Sections.TryGetValue(new KeyValuePair<string, string?>(section,subSection), out var values))
             {
                 return values.Where(v => v.Item1.Equals(key)).Select(v => v.Item2);
             }

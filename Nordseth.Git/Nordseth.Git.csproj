@@ -8,6 +8,7 @@
 		<PackageProjectUrl>https://github.com/nordseth/Nordseth-Git</PackageProjectUrl>
 		<Authors>Nordseth</Authors>
 		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
 	<ItemGroup>

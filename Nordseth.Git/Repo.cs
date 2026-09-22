@@ -8,7 +8,7 @@ public class Repo
     private readonly GitConfigReader _configReader;
     private readonly ObjectReader _objectReader;
 
-    private GitConfig _config;
+    private GitConfig? _config;
 
     public Repo(string path)
     {
@@ -37,13 +37,15 @@ public class Repo
 
     public GitConfig LoadConfig()
     {
-        using (var configStream = File.OpenRead(Path.Combine(RepoPath, "config")))
-        {
-            var sections = _configReader.Read(configStream);
-            _config = new GitConfig { Sections = sections };
-        }
-
+        _config ??= LoadConfigCore();
         return _config;
+    }
+
+    private GitConfig LoadConfigCore()
+    {
+        using var configStream = File.OpenRead(Path.Combine(RepoPath, "config"));
+        var sections = _configReader.Read(configStream);
+        return new GitConfig { Sections = sections };
     }
 
     public IEnumerable<(string name, string hash)> EnumerateRefs(string path = "refs")
@@ -98,7 +100,7 @@ public class Repo
         }
     }
 
-    public string FindRef(string refName)
+    public string? FindRef(string refName)
     {
         var filePath = Path.Combine(RepoPath, refName);
         if (File.Exists(filePath))
@@ -115,7 +117,7 @@ public class Repo
         return null;
     }
 
-    public (string refName, string hash) GetHead()
+    public (string? refName, string? hash) GetHead()
     {
         var head = File.ReadLines(Path.Combine(RepoPath, "HEAD")).First();
         if (head.StartsWith("ref: "))
@@ -129,35 +131,35 @@ public class Repo
         }
     }
 
-    public Commit GetCommit(string hash)
+    public Commit? GetCommit(string hash)
     {
         var (type, stream) = _objectReader.GetObject(hash);
-        if (type == ObjectType.commit)
+        if (type == ObjectType.commit && stream != null)
         {
             return _objectParser.ReadCommit(hash, stream);
         }
         else
         {
-            stream.Dispose();
+            stream?.Dispose();
             return null;
         }
     }
 
-    public IEnumerable<Tree> GetTree(string hash)
+    public IEnumerable<Tree>? GetTree(string hash)
     {
         var (type, stream) = _objectReader.GetObject(hash);
-        if (type == ObjectType.tree)
+        if (type == ObjectType.tree && stream != null)
         {
             return _objectParser.ReadTree(stream).ToList();
         }
         else
         {
-            stream.Dispose();
+            stream?.Dispose();
             return null;
         }
     }
 
-    public Stream GetBlob(string hash)
+    public Stream? GetBlob(string hash)
     {
         var (type, stream) = _objectReader.GetObject(hash);
         if (type == ObjectType.blob)
@@ -166,34 +168,34 @@ public class Repo
         }
         else
         {
-            stream.Dispose();
+            stream?.Dispose();
             return null;
         }
     }
 
-    public Tag GetTag(string hash)
+    public Tag? GetTag(string hash)
     {
         var (type, stream) = _objectReader.GetObject(hash);
         if (type == ObjectType.commit)
         {
-            stream.Dispose();
+            stream?.Dispose();
             return new Tag
             {
                 Commit = hash,
             };
         }
-        else if (type == ObjectType.tag)
+        else if (type == ObjectType.tag && stream != null)
         {
             return _objectParser.ReadTag(hash, stream);
         }
         else
         {
-            stream.Dispose();
+            stream?.Dispose();
             return null;
         }
     }
 
-    public string DescribeCommit(string commitHash)
+    public string? DescribeCommit(string commitHash)
     {
         var commit = GetCommit(commitHash);
         if (commit == null)
@@ -203,8 +205,8 @@ public class Repo
 
         var tagRefs = EnumerateRefs("refs/tags");
         var tags = tagRefs.Select(r => GetTag(r.hash))
-            .Where(t => t.Name != null)
-            .OrderByDescending(t => t.Tagger.When)
+            .Where(t => t != null && t.Name != null)
+            .OrderByDescending(t => t!.Tagger?.When)
             .ToList();
 
         if (tags.Any())
@@ -214,7 +216,7 @@ public class Repo
             IEnumerable<string> currentCommits = new[] { commitHash };
             while (currentCommits.Any())
             {
-                var tag = tags.FirstOrDefault(t => currentCommits.Any(c => c == t.Commit));
+                var tag = tags.FirstOrDefault(t => currentCommits.Any(c => c == t?.Commit));
                 if (tag != null)
                 {
                     if (depth == 0)
@@ -234,7 +236,8 @@ public class Repo
 
                 currentCommits = currentCommits
                     .Select(h => GetCommit(h))
-                    .SelectMany(c => c.Parents)
+                    .Where(c => c != null)
+                    .SelectMany(c => c!.Parents)
                     .Where(c => !commitsChecked.Contains(c))
                     .ToList();
 
@@ -246,24 +249,32 @@ public class Repo
         return commitHash.Substring(0, ShortHashLenght);
     }
 
-    public GitInfo GetGitInfo(string commitHash = null)
+    public GitInfo GetGitInfo(string? commitHash = null)
     {
-        Commit commit;
-        string branch = null;
+        Commit? commit;
+        string? branch = null;
         if (commitHash == null)
         {
             var (refName, hash) = GetHead();
-            commitHash = hash;
             branch = refName;
-            commit = GetCommit(hash);
+            if (hash != null)
+            {
+                commitHash = hash;
+                commit = GetCommit(hash);
+            }
+            else
+            {
+                throw new Exception($"Head not found");
+            }
         }
         else
         {
             commit = GetCommit(commitHash);
-            if (commit == null)
-            {
-                throw new Exception($"Commit {commitHash} not found");
-            }
+        }
+
+        if (commit == null)
+        {
+            throw new Exception($"Commit {commitHash} not found");
         }
 
         var info = new GitInfo
@@ -277,10 +288,7 @@ public class Repo
 
         try
         {
-            if (_config == null)
-            {
-                LoadConfig();
-            }
+            _config ??= LoadConfigCore();
 
             info.OriginUrl = _config["remote", "origin", "url"]?.FirstOrDefault();
         }

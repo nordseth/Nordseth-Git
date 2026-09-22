@@ -13,6 +13,7 @@ public enum ObjectType
 
 public class ObjectReader
 {
+    private IReadOnlyList<PackIndex>? _packIndex;
     private readonly string _objectsPath;
     private readonly PackReader _packReader;
 
@@ -22,37 +23,29 @@ public class ObjectReader
         _packReader = new PackReader(repoPath);
     }
 
-    public IEnumerable<PackIndex> PackIndex { get; private set; }
+    public IReadOnlyList<PackIndex> PackIndex => _packIndex ??= LoadIndexCore();
 
-    public void LoadIndex()
+    public void LoadIndex() => _packIndex = LoadIndexCore();
+
+    private List<PackIndex> LoadIndexCore()
     {
-        var indexFiles = Directory.EnumerateFiles(Path.Combine(_objectsPath, "pack"), "*.idx");
-
         var index = new List<PackIndex>();
-        foreach (var indexFile in indexFiles)
+        foreach (var indexFile in Directory.EnumerateFiles(Path.Combine(_objectsPath, "pack"), "*.idx"))
         {
-            using (var fileStream = File.OpenRead(indexFile))
-            {
-                var packIndex = new PackIndex(Path.GetFileNameWithoutExtension(indexFile), fileStream);
-                index.Add(packIndex);
-            }
+            using var fileStream = File.OpenRead(indexFile);
+            index.Add(new PackIndex(Path.GetFileNameWithoutExtension(indexFile), fileStream));
         }
 
-        PackIndex = index;
+        return index;
     }
 
-    public (string packName, int offset) FindPackObject(string hash)
+    public (string? packName, int offset) FindPackObject(string hash)
     {
         return FindPackObject(hash.HexToBytes());
     }
 
-    public (string packName, int offset) FindPackObject(byte[] objectId)
+    public (string? packName, int offset) FindPackObject(byte[] objectId)
     {
-        if (PackIndex == null)
-        {
-            LoadIndex();
-        }
-
         foreach (var i in PackIndex)
         {
             var result = i.FindObject(objectId);
@@ -65,7 +58,7 @@ public class ObjectReader
         return (null, -1);
     }
 
-    public (ObjectType objectType, Stream objectStream) GetObject(string hash)
+    public (ObjectType objectType, Stream? objectStream) GetObject(string hash)
     {
         var (type, unpackedObject) = GetUnpackedObject(hash);
         if (unpackedObject != null)
@@ -95,7 +88,7 @@ public class ObjectReader
         return (entry.Type.ToObjectType(), stream);
     }
 
-    public (ObjectType objectType, Stream objectStream) GetUnpackedObject(string hash)
+    public (ObjectType objectType, Stream? objectStream) GetUnpackedObject(string hash)
     {
         if (hash.Length != 40)
         {
@@ -148,12 +141,14 @@ public class ObjectReader
 
         if (entry.Type == PackObjectType.OBJ_OFS_DELTA)
         {
-            (objectType, baseObjectStream) = GetObjectFromPack(entry.Pack, entry.Offset - entry.RefOffset.Value);
+            (objectType, baseObjectStream) = GetObjectFromPack(entry.Pack, entry.Offset - entry.RefOffset!.Value);
         }
         else if (entry.Type == PackObjectType.OBJ_REF_DELTA)
         {
             // recursive
-            (objectType, baseObjectStream) = GetObject(entry.RefObjectId.ToHexString());
+            var baseId = entry.RefObjectId!.ToHexString();
+            (objectType, var baseStream) = GetObject(baseId);
+            baseObjectStream = baseStream ?? throw new InvalidOperationException($"Base object {baseId} for delta {entry} not found");
         }
         else
         {
@@ -172,13 +167,8 @@ public class ObjectReader
         }
     }
 
-    private string FindObjectIdInIndex(string pack, int offset)
+    private string? FindObjectIdInIndex(string pack, int offset)
     {
-        if (PackIndex == null)
-        {
-            LoadIndex();
-        }
-
         var index = PackIndex.FirstOrDefault(i => i.Name == pack);
 
         return index?.FindObjectId(offset)?.ToHexString();

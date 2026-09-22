@@ -41,7 +41,7 @@ public class GitInfoTests
     public void GitInfo_Describe_Commit(int i, string expectedPrefix)
     {
         var s = _scenario;
-        string description = s.Open().DescribeCommit(s.Commits[i]);
+        string? description = s.Open().DescribeCommit(s.Commits[i]);
 
         var expected = expectedPrefix.EndsWith("-") ? expectedPrefix + PackedScenario.Short(s.Commits[i]) : expectedPrefix;
         Assert.AreEqual(expected, description);

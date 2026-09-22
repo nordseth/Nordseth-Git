@@ -149,13 +149,13 @@ public class ObjectParser
             }
 
             // todo split
-            string tmp = Encoding.UTF8.GetString(buffer, i, stringTerm - i);
-            var split = tmp.Split(new[] { ' ' }, 2);
+            string entry = Encoding.UTF8.GetString(buffer, i, stringTerm - i);
+            int space = entry.IndexOf(' ');
 
             yield return new Tree
             {
-                Mode = split.FirstOrDefault(),
-                Name = split.Skip(1).FirstOrDefault(),
+                Mode = space >= 0 ? entry[..space] : entry,
+                Name = space >= 0 ? entry[(space + 1)..] : string.Empty,
                 Ref = BitConverter.ToString(buffer, stringTerm + 1, 20).Replace("-", string.Empty).ToLowerInvariant()
             };
 

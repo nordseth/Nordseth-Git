@@ -4,18 +4,18 @@ public class GitConfigReader
 {
     // https://git-scm.com/docs/git-config/1.8.2#_syntax
     // todo: unescape
-    public IDictionary<KeyValuePair<string, string>, IList<(string, string)>> Read(Stream stream)
+    public IDictionary<KeyValuePair<string, string?>, IList<(string, string)>> Read(Stream stream)
     {
-        var data = new Dictionary<KeyValuePair<string, string>, IList<(string, string)>>(new SectionComparer());
+        var data = new Dictionary<KeyValuePair<string, string?>, IList<(string, string)>>(new SectionComparer());
         using (var reader = new StreamReader(stream))
         {
-            var section = new KeyValuePair<string, string>(null, null);
-
-            while (reader.Peek() != -1)
+            var section = new KeyValuePair<string, string?>(string.Empty, null);
+        
+            string? rawLine;
+            while ((rawLine = reader.ReadLine()) is not null)
             {
-                var rawLine = reader.ReadLine();
                 // Trim comments
-                int commentSeperator = rawLine.IndexOfAny(new[] { '#', ';' });
+                int commentSeperator = rawLine.IndexOfAny(['#', ';']);
                 if (commentSeperator >= 0)
                 {
                     rawLine = rawLine.Substring(0, commentSeperator);
@@ -34,7 +34,7 @@ public class GitConfigReader
                 {
                     // remove the brackets
                     var (s, ss) = GetSection(line.Substring(1, line.Length - 2));
-                    section = new KeyValuePair<string, string>(s, ss);
+                    section = new KeyValuePair<string, string?>(s, ss);
                     continue;
                 }
 
@@ -68,7 +68,7 @@ public class GitConfigReader
         return data;
     }
 
-    private (string section, string subSection) GetSection(string sectionString)
+    private (string section, string? subSection) GetSection(string sectionString)
     {
         sectionString = sectionString.Trim();
         int separator = sectionString.IndexOf(' ');
@@ -89,17 +89,19 @@ public class GitConfigReader
         return (section, subSection);
     }
 
-    private class SectionComparer : IEqualityComparer<KeyValuePair<string, string>>
+    private class SectionComparer : IEqualityComparer<KeyValuePair<string, string?>>
     {
-        public bool Equals(KeyValuePair<string, string> x, KeyValuePair<string, string> y)
+        public bool Equals(KeyValuePair<string, string?> x, KeyValuePair<string, string?> y)
         {
             return string.Equals(x.Key, y.Key, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(x.Value, y.Value);
         }
 
-        public int GetHashCode(KeyValuePair<string, string> obj)
+        public int GetHashCode(KeyValuePair<string, string?> obj)
         {
-            return obj.Key?.ToLowerInvariant().GetHashCode() ?? 0 ^ obj.Value?.GetHashCode() ?? 0;
+            return HashCode.Combine(
+                StringComparer.OrdinalIgnoreCase.GetHashCode(obj.Key),
+                obj.Value);
         }
     }
 }
