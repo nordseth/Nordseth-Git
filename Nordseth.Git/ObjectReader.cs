@@ -139,20 +139,28 @@ public class ObjectReader
         ObjectType objectType;
         Stream baseObjectStream;
 
-        if (entry.Type == PackObjectType.OBJ_OFS_DELTA)
+        try
         {
-            (objectType, baseObjectStream) = GetObjectFromPack(entry.Pack, entry.Offset - entry.RefOffset!.Value);
+            if (entry.Type == PackObjectType.OBJ_OFS_DELTA)
+            {
+                (objectType, baseObjectStream) = GetObjectFromPack(entry.Pack, entry.Offset - entry.RefOffset!.Value);
+            }
+            else if (entry.Type == PackObjectType.OBJ_REF_DELTA)
+            {
+                // recursive
+                var baseId = entry.RefObjectId!.ToHexString();
+                (objectType, var baseStream) = GetObject(baseId);
+                baseObjectStream = baseStream ?? throw new InvalidOperationException($"Base object {baseId} for delta {entry} not found");
+            }
+            else
+            {
+                throw new InvalidOperationException($"{entry.Type} not a delta object");
+            }
         }
-        else if (entry.Type == PackObjectType.OBJ_REF_DELTA)
+        catch
         {
-            // recursive
-            var baseId = entry.RefObjectId!.ToHexString();
-            (objectType, var baseStream) = GetObject(baseId);
-            baseObjectStream = baseStream ?? throw new InvalidOperationException($"Base object {baseId} for delta {entry} not found");
-        }
-        else
-        {
-            throw new InvalidOperationException($"{entry.Type} not a delta object");
+            delta.Dispose();
+            throw;
         }
 
         try
