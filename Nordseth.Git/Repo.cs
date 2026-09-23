@@ -37,7 +37,7 @@ public class Repo
 
     public GitConfig LoadConfig()
     {
-        _config ??= LoadConfigCore();
+        _config = LoadConfigCore();
         return _config;
     }
 
