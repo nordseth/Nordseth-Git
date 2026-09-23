@@ -7,9 +7,15 @@
 		<RepositoryUrl>https://github.com/nordseth/Nordseth-Git</RepositoryUrl>
 		<PackageProjectUrl>https://github.com/nordseth/Nordseth-Git</PackageProjectUrl>
 		<Authors>Nordseth</Authors>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
+
+	<ItemGroup>
+		<None Include="..\README.md" Pack="true" PackagePath="\" />
+	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="MinVer" Version="8.0.0">
