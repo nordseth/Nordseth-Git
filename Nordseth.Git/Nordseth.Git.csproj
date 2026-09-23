@@ -3,7 +3,7 @@
 	<PropertyGroup>
 		<TargetFrameworks>net8.0;net10.0</TargetFrameworks>
 		<PackageId>Nordseth.Git</PackageId>
-		<Version>1.0.0</Version>
+		<MinVerMinimumMajorMinor>2.0</MinVerMinimumMajorMinor>
 		<RepositoryUrl>https://github.com/nordseth/Nordseth-Git</RepositoryUrl>
 		<PackageProjectUrl>https://github.com/nordseth/Nordseth-Git</PackageProjectUrl>
 		<Authors>Nordseth</Authors>
