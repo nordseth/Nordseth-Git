@@ -1,18 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace Nordseth.Git;
 
-namespace Nordseth.Git
+public record Tree
 {
-    public class Tree
-    {
-        public string Mode { get; set; }
-        public string Name { get; set; }
-        public string Ref { get; set; }
+    public required string Mode { get; init; }
+    public required string Name { get; init; }
+    public required string Ref { get; init; }
 
-        public override string ToString()
-        {
-            return $"{Mode} {Name} {Ref}";
-        }
+    public override string ToString()
+    {
+        return $"{Mode} {Name} {Ref}";
     }
 }

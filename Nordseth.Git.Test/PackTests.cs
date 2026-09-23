@@ -45,7 +45,7 @@ public class PackTests
             else
             {
                 Assert.AreEqual(PackObjectType.OBJ_REF_DELTA, entry.Type, obj.Id);
-                Assert.AreEqual(obj.BaseId, entry.RefObjectId.ToHexString(), obj.Id);
+                Assert.AreEqual(obj.BaseId, entry.RefObjectId!.ToHexString(), obj.Id);
             }
         }
     }
@@ -61,8 +61,9 @@ public class PackTests
         var objs = new ObjectReader(s.Fake.GitDir);
         var packReader = new PackReader(s.Fake.GitDir);
 
-        var entries = packReader.ReadPackEntryHeaderWithRefs(deepest.Id, objs.FindPackObject).ToList();
-
+        var entries = packReader.ReadPackEntryHeaderWithRefs(deepest.Id, objs.FindPackObject)?.ToList();
+        
+        Assert.IsNotNull(entries);
         Assert.AreEqual(deepest.Depth + 1, entries.Count);
         Assert.IsTrue(entries.Take(entries.Count - 1).All(IsDelta));
         Assert.IsFalse(IsDelta(entries.Last()));

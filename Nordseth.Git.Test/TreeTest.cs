@@ -36,7 +36,7 @@ public class TreeTest
         }
 
         var expected = s.TreeEntries[obj.Id].Select(e => $"{e.mode} {e.name} {e.hash}").ToList();
-        CollectionAssert.AreEqual(expected, tree.Select(t => t.ToString()).ToList());
+        Assert.AreSequenceEqual(expected, tree.Select(t => t.ToString()).ToList());
     }
 
     [TestMethod]
@@ -44,7 +44,7 @@ public class TreeTest
     {
         var s = _scenario;
         var tree = s.Open().GetTree(s.Trees[1]);
-
+        Assert.IsNotNull(tree);
         var sub = tree.Single(t => t.Name == "sub");
         Assert.AreEqual("40000", sub.Mode);
         Assert.AreEqual(s.SubTree, sub.Ref);

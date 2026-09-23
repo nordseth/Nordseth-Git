@@ -26,6 +26,7 @@ public class ObjectTests
         var (type, stream) = objs.GetUnpackedObject(head);
 
         Assert.AreEqual(ObjectType.commit, type);
+        Assert.IsNotNull(stream);
         Assert.AreEqual(head, FakeRepoGit.HashObject("commit", stream.ReadAllBytes()));
     }
 
@@ -77,7 +78,7 @@ public class ObjectTests
 
         var indices = objs.PackIndex.OrderBy(i => i.Name == s.PackA ? 0 : 1).ToList();
 
-        CollectionAssert.AreEqual(new[] { s.PackA, s.PackB }, indices.Select(i => i.Name).ToList());
+        Assert.AreSequenceEqual(new[] { s.PackA, s.PackB }, indices.Select(i => i.Name).ToList());
         Assert.IsTrue(indices.All(i => i.Version == 2));
         Assert.AreEqual(s.VerifyA.Count, indices[0].Objects);
         Assert.AreEqual(s.VerifyB.Count, indices[1].Objects);
