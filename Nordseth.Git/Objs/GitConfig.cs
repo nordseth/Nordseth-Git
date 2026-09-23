@@ -6,7 +6,7 @@ public class GitConfig
 {
     public required IDictionary<KeyValuePair<string, string?>, IList<(string, string)>> Sections { get; set; }
 
-    public IEnumerable<string>? this[string section, string subSection, string key]
+    public IEnumerable<string>? this[string section, string? subSection, string key]
     {
         get
         {
