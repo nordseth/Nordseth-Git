@@ -195,7 +195,7 @@ public class Repo
         }
     }
 
-    public string? DescribeCommit(string commitHash)
+    public string DescribeCommit(string commitHash)
     {
         var commit = GetCommit(commitHash);
         if (commit == null)
@@ -221,7 +221,7 @@ public class Repo
                 {
                     if (depth == 0)
                     {
-                        return tag.Name;
+                        return tag.Name!;
                     }
                     else
                     {
