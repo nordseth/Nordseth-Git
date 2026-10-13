@@ -38,4 +38,46 @@ public class DeltaTests
             Assert.AreEqual(s.BlobTexts[delta.Id], reader.ReadToEnd());
         }
     }
+
+    [TestMethod]
+    public void DeltaStream_CopyAndInsert_ProducesTarget()
+    {
+        // src 11, target 11, copy(offset 0, size 5), insert 6 " there"
+        var delta = new List<byte> { 11, 11, 0x90, 5, 6 };
+        delta.AddRange(Encoding.ASCII.GetBytes(" there"));
+
+        var result = ReadDelta("hello world", delta.ToArray());
+
+        Assert.AreEqual("hello there", result);
+    }
+
+    [TestMethod]
+    public void DeltaStream_TruncatedInsert_Throws()
+    {
+        // insert 5 bytes, but only 2 are present
+        var delta = new byte[] { 5, 5, 5, (byte)'a', (byte)'b' };
+
+        var task = Task.Run(() => ReadDelta("hello", delta));
+        bool completed = ((IAsyncResult)task).AsyncWaitHandle.WaitOne(TimeSpan.FromSeconds(2));
+
+        Assert.IsTrue(completed, "DeltaStream.Read hangs on truncated delta");
+        Assert.IsTrue(task.IsFaulted, "expected an exception for truncated delta");
+    }
+
+    [TestMethod]
+    public void DeltaStream_ReservedOpcodeZero_Throws()
+    {
+        var delta = new byte[] { 5, 5, 0 };
+
+        Assert.Throws<Exception>(() => ReadDelta("hello", delta));
+    }
+
+    private static string ReadDelta(string baseObject, byte[] delta)
+    {
+        var baseStream = new MemoryStream(Encoding.ASCII.GetBytes(baseObject));
+        using (var reader = new StreamReader(new DeltaStream(new MemoryStream(delta), baseStream)))
+        {
+            return reader.ReadToEnd();
+        }
+    }
 }
