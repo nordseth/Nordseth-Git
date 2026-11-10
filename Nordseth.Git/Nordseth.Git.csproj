@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net10.0</TargetFramework>
+		<TargetFrameworks>net10.0;net11.0</TargetFrameworks>
 		<PackageId>Nordseth.Git</PackageId>
 		<MinVerMinimumMajorMinor>2.0</MinVerMinimumMajorMinor>
 		<RepositoryUrl>https://github.com/nordseth/Nordseth-Git</RepositoryUrl>
